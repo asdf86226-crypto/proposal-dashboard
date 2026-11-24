@@ -180,6 +180,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
         <button class="b" id="pricePaste">엑셀에서 붙여넣기</button>
         <button class="b p" id="pricePpt">유통가 제안 PPT</button>
         <button class="b d" id="priceTeams">팀즈로 보내기</button>
+        <button class="b" id="psToProp" title="이 건의 품목 · 입고가 · 사진으로 신규 제안서를 만듭니다">→ 이 건으로 신규 제안서</button>
       </div>
     </div>
     <div class="tbl-wrap">
@@ -1137,6 +1138,38 @@ $('#propList').addEventListener('click', e => {
   S.curProp = p.id; save(); renderProp();
 });
 $('#propNew').onclick = () => { const p = emptyProposal(); p.date = `${new Date().getFullYear()}. ${new Date().getMonth() + 1}`; S.props.unshift(p); S.curProp = p.id; save(); renderProp(); };
+/* 판매가 건 → 신규 제안서: 견적을 받아 판매가를 뽑은 건을 그대로 제안서로 */
+const FIN_NAMES = { CR: '크롬', BN: '브러시드 니켈', GR: '건그레이', NI: '니켈', BK: '블랙', WH: '화이트', GD: '골드', MB: '매트블랙', SS: '스테인리스' };
+function psModels(ps) { // 품목코드 'SS80050M/CR' → 모델 SS80050M · 마감 크롬. '/'가 없으면 마감 '기본'
+  const rows = ps.rows.filter(r => isFinite(landedCost(r.div, r.cur, r.price)));
+  const out = rows.map(r => { const code = (r.code || r.name || '').trim(); const m = code.match(/^(.+?)[\/](.+)$/);
+    const fin = m ? (FIN_NAMES[m[2].toUpperCase()] || m[2]) : '기본'; return { r, model: m ? m[1] : (code || '품목'), fin, cost: landedCost(r.div, r.cur, r.price) }; });
+  return { list: out, models: [...new Set(out.map(o => o.model))], fins: [...new Set(out.map(o => o.fin))] };
+}
+function costFromPS(p, ps) {
+  const M = psModels(ps); const set = (p.cost.setNames.split(',')[0] || '').trim() || '단품';
+  p.cost.mode = 'KRW'; p.cost.models = M.models.join(', '); p.cost.finishes = M.fins.join(', '); p.cost.setNames = set; p.cost.m = {};
+  M.list.forEach(o => { p.cost.m[`${o.model}|${o.fin}|${set}`] = Math.round(o.cost); });
+  p.cost.note = `판매가 산출 '${ps.title}' 기준 입고가 (${ST().fxMonth} 환율 USD ${num(ST().fxUsd).toFixed(2)} · CNY ${num(ST().fxCny).toFixed(2)}, 부대비용 수입 ${ST().costImport}% · 에이전트 ${ST().costAgent}% · 국내 ${ST().costDomestic}%) · ${today()} 가져옴`;
+  if (!M.models.includes(p.pricing.baseModel)) p.pricing.baseModel = M.models[0] || '';
+  p.fromPS = ps.id; return M;
+}
+$('#psToProp').onclick = () => {
+  const ps = curPS(); const M = psModels(ps);
+  if (!M.list.length) { toast('단가가 들어간 품목이 없습니다'); return; }
+  const p = emptyProposal(); const name = ps.title.replace(/\s*유통가.*$/, '').replace(/\s*\(예시\)/, '') || M.list[0].r.name;
+  Object.assign(p, { title: `${name} 신규 제안`, coverTitle: `${name}\n신규 제안`, subtitle: `${M.models.length}개 모델${M.fins.length > 1 || M.fins[0] !== '기본' ? ' · ' + M.fins.join(' · ') : ''}\n입고가 · 판매가 검토`, date: `${new Date().getFullYear()}. ${new Date().getMonth() + 1}`, baseDate: today().replace(/-/g, '.'), coverImg: (ps.rows.find(r => r.img) || {}).img || '' });
+  costFromPS(p, ps);
+  p.cost.title = '입고가 (판매가 산출 기준)'; p.pricing.title = '판매가 검토 : 대리점가 · 소비자가';
+  p.summary.what = M.models.map(m => { const o = M.list.find(x => x.model === m); return `${m}${o.r.name ? ' ' + o.r.name : ''}`; }).join(' · ');
+  M.models.slice(0, 3).forEach((m, i) => { const o = M.list.find(x => x.model === m && x.r.img) || M.list.find(x => x.model === m);
+    Object.assign(p.lineup.models[i], { tag: (n => n > 1 ? `마감 ${n}종` : '')(M.fins.filter(f => M.list.some(x => x.model === m && x.fin === f)).length), code: m, name: o.r.name || '', img: o.r.img || '' }); });
+  p.lineup.title = `제안 라인업 : ${M.models.length}개 모델`;
+  S.props.unshift(p); S.curProp = p.id; save();
+  openSecs.add('cost'); openSecs.add('pricing');
+  $$('#nav button').forEach(x => x.classList.toggle('on', x.dataset.t === 'prop')); $$('.tab').forEach(t => t.classList.toggle('on', t.id === 't-prop')); renderProp(); scrollTo(0, 0);
+  toast(`'${ps.title}'로 제안서를 만들었습니다. 배경 · 경쟁사 · 영업 포인트를 채우세요`, 4500);
+};
 $('#propDup').onclick = () => { const p = P(); if (!p) return; const c = JSON.parse(JSON.stringify(p)); c.id = uid(); c.title += ' (복사본)'; S.props.unshift(c); S.curProp = c.id; save(); renderProp(); };
 
 /* 입력 필드 헬퍼: data-p="경로" 로 상태와 연결 */
@@ -1190,7 +1223,7 @@ function renderProp() {
   ${sec('lineup', '6. 제안 라인업', `${inp('lineup.title', '장 제목')}<div class="grid3" style="margin-top:8px">${[0, 1, 2].map(i => `<div class="slot">${img(`lineup.models.${i}.img`, '모델 사진')}${inp(`lineup.models.${i}.tag`, '태그')}${inp(`lineup.models.${i}.code`, '모델 코드')}${inp(`lineup.models.${i}.name`, '한 줄 설명')}${ta(`lineup.models.${i}.bullets`, '특징 (한 줄에 하나)', '', 80)}</div>`).join('')}</div>${inp('lineup.note', '하단 공통 메모', '', 'margin-top:8px')}`, 'lineup.on')}
   ${sec('sets', '7. 세트 구성', `${inp('sets.title', '장 제목')}<h3>구성품 (+ 로 연결)</h3><div class="grid3" style="grid-template-columns:repeat(4,1fr)">${[0, 1, 2, 3].map(i => `<div class="slot">${img(`sets.parts.${i}.img`, '사진')}${inp(`sets.parts.${i}.name`, '이름')}${inp(`sets.parts.${i}.desc`, '설명')}</div>`).join('')}</div>
      <h3>세트 선택지</h3><div class="grid3">${[0, 1, 2].map(i => `<div class="slot">${img(`sets.options.${i}.img`, '사진')}<div class="row">${inp(`sets.options.${i}.tag`, '세트명', '', 'width:90px')}${inp(`sets.options.${i}.badge`, '구분', '', 'flex:1')}</div>${inp(`sets.options.${i}.name`, '밸브 · 구성')}${ta(`sets.options.${i}.desc`, '설명', '', 48)}</div>`).join('')}</div>`, 'sets.on')}
-  ${sec('cost', '8. 세트별 입고가', `${inp('cost.title', '장 제목')}
+  ${sec('cost', '8. 세트별 입고가', `${(() => { const ps = p.fromPS && S.priceSets.find(x => x.id === p.fromPS); return ps ? `<div class="row" style="margin-bottom:8px"><span class="pill">판매가 건 '${esc(ps.title)}'에서 가져옴</span><button class="b" id="propRefreshPS">판매가 건에서 다시 가져오기</button></div>` : (p.fromPS ? '<p class="hint red">가져온 판매가 건이 지워졌습니다.</p>' : ''); })()}${inp('cost.title', '장 제목')}
      <div class="row" style="margin-top:8px">${inp('cost.models', '모델 (쉼표)', '', 'flex:1')}${inp('cost.finishes', '마감 (쉼표)', '', 'flex:1')}${inp('cost.setNames', '세트 (쉼표)', '', 'flex:1.4')}
      <div class="fld"><label>단가 입력 방식</label><select data-p="cost.mode"><option value="USD" ${p.cost.mode === 'USD' ? 'selected' : ''}>FOB USD</option><option value="CNY" ${p.cost.mode === 'CNY' ? 'selected' : ''}>FOB CNY</option><option value="KRW" ${p.cost.mode === 'KRW' ? 'selected' : ''}>원화 입고가</option></select></div></div>
      <p class="hint" style="margin-top:6px">${p.cost.mode === 'KRW' ? '입고가(원)를 그대로 넣습니다.' : `외화 단가를 넣으면 ${p.cost.mode} × ${fxOf(p.cost.mode).toFixed(2)}원 × (1 + 수입 부대비용 ${ST().costImport}%)로 입고가를 계산합니다.`} 첫 번째 세트가 주력으로 강조됩니다.</p>
@@ -1236,6 +1269,7 @@ $('#propEdit').addEventListener('click', e => {
   const t = e.target; const p = P();
   if (t.dataset.img) { imgPath = t.dataset.img; $('#imgIn').value = ''; $('#imgIn').click(); }
   if (t.dataset.imgdel) { setPath(p, t.dataset.imgdel, ''); save(); renderPropKeep(); }
+  if (t.id === 'propRefreshPS') { const ps = S.priceSets.find(x => x.id === p.fromPS); if (ps) { costFromPS(p, ps); save(); renderPropKeep(); toast('입고가를 판매가 건의 최신 값으로 바꿨습니다'); } }
   if (t.id === 'compAdd') { p.comps.items.push({ brand: '', name: '', price: '', shop: '', desc: '', img: '', hot: false }); save(); renderPropKeep(); }
   if (t.dataset.compdel) { p.comps.items.splice(+t.dataset.compdel, 1); save(); renderPropKeep(); }
 });
@@ -1374,8 +1408,16 @@ async function buildPropPpt() {
     const hd = ['헤드', '마감', ...cm.sets].map((t, i) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: i < 2 ? 'left' : 'right' } }));
     const rows = [hd];
     cm.models.forEach(m => cm.fins.forEach((f, fi) => rows.push([{ text: fi ? '' : m, options: { bold: true } }, { text: f }, ...cm.sets.map((st, si) => ({ text: isFinite(cm.v(m, f, st)) ? won(cm.v(m, f, st)) + '원' : '–', options: { align: 'right', bold: si === 0, color: si === 0 ? C.teal : C.ink } }))])));
+    let colW = [1.5, 0.9, ...cm.sets.map(() => 6.6 / cm.sets.length)];
+    if (cm.sets.length === 1 && cm.fins.length > 1) {
+      const st = cm.sets[0];
+      rows.length = 0;
+      rows.push([`모델 (${st})`, ...cm.fins].map((t, i) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: i ? 'right' : 'left' } })));
+      cm.models.forEach(m => rows.push([{ text: m, options: { bold: true } }, ...cm.fins.map((f, fi) => ({ text: isFinite(cm.v(m, f, st)) ? won(cm.v(m, f, st)) + '원' : '–', options: { align: 'right', bold: fi === 0, color: fi === 0 ? C.teal : C.ink } }))]));
+      colW = [2.0, ...cm.fins.map(() => 7.0 / cm.fins.length)];
+    }
     const rh = Math.min(0.3, 3.3 / rows.length);
-    s.addTable(rows, { x: 0.5, y: 1.2, w: 9, colW: [1.5, 0.9, ...cm.sets.map(() => 6.6 / cm.sets.length)], rowH: rh, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+    s.addTable(rows, { x: 0.5, y: 1.2, w: 9, colW, rowH: rh, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
     T(s, p.cost.note, 0.5, Math.min(4.65, 1.25 + rh * rows.length + 0.1), 9, 0.5, { fontSize: 7, color: C.soft }); }
   // 판매가 검토
   if (has.has('판매가 검토')) { const s = base(pres, 'PRICING', p.pricing.title || '판매가 검토', ++pg, foot);
