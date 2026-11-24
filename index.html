@@ -160,11 +160,20 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
 
 <!-- ============ 판매가 산출 ============ -->
 <section class="tab on" id="t-price">
+ <div class="split">
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>판매가 건</h2><button class="b" id="psNew">+ 새 건</button></div>
+    <div class="list" id="psList"></div>
+    <div class="row" style="margin-top:12px"><button class="b" id="psDup">복제</button></div>
+    <p class="hint" style="margin-top:6px">건마다 품목 표가 따로 저장됩니다. 비슷한 건은 복제해서 고치면 빠릅니다.</p>
+  </div>
+  <div>
   <div class="card">
     <div class="row" style="justify-content:space-between">
-      <div>
+      <div style="flex:1;min-width:280px">
         <h2>판매가 산출 — 대리점가 · 소비자가 제안</h2>
         <p class="hint" id="priceFlow"></p>
+        <div class="fld" style="max-width:520px;margin-bottom:10px"><label>건 제목 (PPT 파일 이름 · 바닥글)</label><input id="psTitle"></div>
       </div>
       <div class="row">
         <button class="b" id="priceAdd">+ 품목 추가</button>
@@ -183,6 +192,8 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
     <p class="hint">대리점가는 제안하는 최저가입니다. 영업팀은 이 표에서 이익률을 올리거나(더 비싸게) 내려서(더 싸게) 단가를 정하면 됩니다. 표 위 행을 누르면 그 품목으로 바뀝니다.</p>
     <div class="ladder" id="ladder"></div>
   </div>
+  </div>
+ </div>
 </section>
 
 <!-- ============ 부품 대체 ============ -->
@@ -429,12 +440,26 @@ function sampleProposal() { return null; }
 let S = null;          // 사용자 입력 (자동 저장)
 let D = null;          // MMS 집계 데이터
 let curSub = null, curProp = null, ladderRow = null;
+function newPriceSet(title, rows) { return { id: uid(), title: title || '새 판매가 건', rows: rows || [blankPriceRow()] }; }
+function blankPriceRow() { return { id: uid(), name: '', code: '', div: '수입', cur: 'USD', price: '', qty: '', sga: '', op: '', final: '', pick: true }; }
+function normPrice(st) { // 예전(표 하나) 자료를 건 목록으로 옮김
+  if (!st.priceSets) { st.priceSets = [newPriceSet(st.priceRows && st.priceRows.some(r => r.name === '스프레이건') ? '스프레이건 유통가 (예시)' : '판매가 건 1', st.priceRows && st.priceRows.length ? st.priceRows : undefined)]; delete st.priceRows; }
+  if (!st.priceSets.length) st.priceSets.push(newPriceSet());
+  if (!st.priceSets.some(x => x.id === st.curPS)) st.curPS = st.priceSets[0].id;
+  return st;
+}
+const curPS = () => S.priceSets.find(x => x.id === S.curPS);
+const PR = () => curPS().rows;
 function freshState() {
   if (PUBLIC_BUILD) { const p = emptyProposal(); p.date = `${new Date().getFullYear()}. ${new Date().getMonth() + 1}`; const s = newSub();
-    return { v: 1, settings: defaultSettings(), priceRows: [{ id: uid(), name: '', code: '', div: '수입', cur: 'USD', price: '', qty: '', sga: '', op: '', final: '', pick: true }], subs: [s], props: [p], curSub: s.id, curProp: p.id }; }
-  const p = sampleProposal(); const s = sampleSub(); return { v: 1, settings: defaultSettings(), priceRows: samplePriceRows(), subs: [s], props: [p], curSub: s.id, curProp: p.id }; }
+    return normPrice({ v: 1, settings: defaultSettings(), priceSets: [newPriceSet('판매가 건 1')], subs: [s], props: [p], curSub: s.id, curProp: p.id }); }
+  const p = sampleProposal(); const s = sampleSub(); return normPrice({ v: 1, settings: defaultSettings(), priceSets: [newPriceSet('스프레이건 유통가 (예시)', samplePriceRows())], subs: [s], props: [p], curSub: s.id, curProp: p.id }); }
 let saveT = null;
-function save() { clearTimeout(saveT); saveT = setTimeout(() => KV.set('state', JSON.parse(JSON.stringify(S))), 400); }
+function save() { clearTimeout(saveT); saveT = setTimeout(flushSave, 400); }
+function flushSave() { clearTimeout(saveT); saveT = null; if (!S) return; S._savedAt = Date.now(); return KV.set('state', JSON.parse(JSON.stringify(S))); }
+// 탭을 닫거나 새로고침할 때: 브라우저 저장소(IndexedDB)는 끝나기 전에 끊길 수 있어 localStorage 에도 바로 한 벌 남김
+addEventListener('pagehide', () => { if (!saveT) return; flushSave(); try { localStorage.setItem('ts-dash-pending', JSON.stringify(S)); } catch (e) { } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveT) flushSave(); });
 
 /* ---------------- 가격 계산 엔진 (판매가 산출표와 동일) ---------------- */
 const ST = () => S.settings;
@@ -482,8 +507,8 @@ function renderPriceFlow() {
   $('#priceFlow').textContent = `매입원가 → 판관비 ${s.sga}% → BEP → 영업이익 ${s.op}% → 대리점가(최종 유통가, ${num(s.roundUnit) > 1 ? s.roundUnit + '원 올림' : '반올림'}) → 소비자가 = 대리점가 × ${s.consumerMult}  ·  ${s.method} 방식  ·  ${s.fxMonth} USD ${num(s.fxUsd).toFixed(2)} / CNY ${num(s.fxCny).toFixed(2)}  ·  부대비용 수입 ${s.costImport}% · 에이전트 ${s.costAgent}% · 국내 ${s.costDomestic}%`;
 }
 function renderPrice() {
-  renderPriceFlow();
-  const rows = S.priceRows;
+  renderPriceFlow(); renderPsList();
+  const rows = PR();
   let h = `<thead><tr><th>보고</th><th>사진</th><th>품목</th><th>품목코드</th><th>구분</th><th>통화</th><th>단가</th><th>수량</th><th>매입원가/개</th><th>판관비율%</th><th>영업이익률%</th><th>BEP</th><th>대리점가<br><span style="font-weight:400">직접 입력</span></th><th>대리점가<br>(최종 유통가)</th><th>소비자가</th><th>영업이익/개</th><th>영업이익률</th><th>영업이익 합계</th><th></th></tr></thead><tbody>`;
   let sumSales = 0, sumOp = 0, sumQty = 0;
   rows.forEach(r => {
@@ -514,8 +539,20 @@ function renderPrice() {
   $('#priceTbl').innerHTML = h;
   renderLadder();
 }
+function renderPsList() {
+  $('#psList').innerHTML = S.priceSets.map(p => `<div class="li ${p.id === S.curPS ? 'on' : ''}" data-id="${p.id}"><span class="t">${esc(p.title || '제목 없음')}</span><span class="pill g">${p.rows.length}</span><button class="x" data-del title="삭제">×</button></div>`).join('');
+  $('#psTitle').value = curPS().title || '';
+}
+$('#psList').addEventListener('click', e => {
+  const li = e.target.closest('.li'); if (!li) return; const p = S.priceSets.find(x => x.id === li.dataset.id);
+  if (e.target.matches('[data-del]')) { ask(`'${p.title}' 건을 지울까요?`, '지우기').then(ok => { if (!ok) return; S.priceSets = S.priceSets.filter(x => x !== p); normPrice(S); ladderRow = null; save(); renderPrice(); }); return; }
+  S.curPS = p.id; ladderRow = null; save(); renderPrice();
+});
+$('#psNew').onclick = () => { const p = newPriceSet(); S.priceSets.unshift(p); S.curPS = p.id; ladderRow = null; save(); renderPrice(); $('#psTitle').focus(); $('#psTitle').select(); };
+$('#psDup').onclick = () => { const c = JSON.parse(JSON.stringify(curPS())); c.id = uid(); c.title += ' (복사본)'; c.rows.forEach(r => r.id = uid()); S.priceSets.unshift(c); S.curPS = c.id; ladderRow = null; save(); renderPrice(); };
+$('#psTitle').addEventListener('input', e => { curPS().title = e.target.value; save(); const li = $(`#psList .li[data-id="${S.curPS}"] .t`); if (li) li.textContent = e.target.value || '제목 없음'; });
 function renderLadder() {
-  const r = S.priceRows.find(x => x.id === ladderRow) || S.priceRows[0];
+  const r = PR().find(x => x.id === ladderRow) || PR()[0];
   if (!r) { $('#ladderCard').hidden = true; return; } $('#ladderCard').hidden = false;
   ladderRow = r.id;
   const c = priceRowCalc(r);
@@ -529,14 +566,14 @@ function renderLadder() {
 }
 $('#priceTbl').addEventListener('input', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return; const k = e.target.dataset.k; if (!k) return;
-  const r = S.priceRows.find(x => x.id === tr.dataset.id);
+  const r = PR().find(x => x.id === tr.dataset.id);
   r[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; save();
   if (k === 'code' || k === 'name') return; // 다시 그리면 커서가 사라지므로 blur 때 처리
   updatePriceLive(); // 입력 칸은 그대로 두고 계산 칸만 바꿈 (커서 유지)
 });
 $('#priceTbl').addEventListener('change', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return; const k = e.target.dataset.k;
-  if (k === 'code') { const r = S.priceRows.find(x => x.id === tr.dataset.id); fillPriceFromERP(r, false); }
+  if (k === 'code') { const r = PR().find(x => x.id === tr.dataset.id); fillPriceFromERP(r, false); }
   if (k === 'code' || k === 'div' || k === 'cur') renderPriceKeepFocus(); else updatePriceLive();
 });
 function renderPriceKeepFocus() { // 탭으로 넘어간 칸을 기억했다가 다시 그린 뒤 그 칸으로 돌려놓음
@@ -547,7 +584,7 @@ function renderPriceKeepFocus() { // 탭으로 넘어간 칸을 기억했다가 
 /* 품목 사진: 칸을 누르고 Ctrl+V · 끌어다 놓기 · 더블클릭으로 파일 */
 async function setRowImg(id, file) {
   if (!file || !/^image\//.test(file.type)) { toast('그림 파일이 아닙니다'); return; }
-  const r = S.priceRows.find(x => x.id === id); if (!r) return;
+  const r = PR().find(x => x.id === id); if (!r) return;
   r.img = await shrinkImage(file, 480); save(); renderPrice();
   const c = $(`#priceTbl tr[data-id="${id}"] .imgcell`); if (c) c.focus(); toast('사진을 넣었습니다');
 }
@@ -567,13 +604,13 @@ $('#priceTbl').addEventListener('dragleave', e => { const c = e.target.closest('
 $('#priceTbl').addEventListener('drop', e => { const c = e.target.closest('.imgcell'); if (!c) return; e.preventDefault(); c.classList.remove('over'); setRowImg(c.closest('tr').dataset.id, e.dataTransfer.files[0]); });
 $('#priceTbl').addEventListener('click', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return;
-  if (e.target.matches('[data-imgx]')) { const r = S.priceRows.find(x => x.id === tr.dataset.id); r.img = ''; save(); renderPrice(); return; }
-  if (e.target.dataset.del) { S.priceRows = S.priceRows.filter(x => x.id !== tr.dataset.id); save(); renderPrice(); return; }
+  if (e.target.matches('[data-imgx]')) { const r = PR().find(x => x.id === tr.dataset.id); r.img = ''; save(); renderPrice(); return; }
+  if (e.target.dataset.del) { const ps = curPS(); ps.rows = ps.rows.filter(x => x.id !== tr.dataset.id); if (!ps.rows.length) ps.rows.push(blankPriceRow()); save(); renderPrice(); return; }
   if (ladderRow !== tr.dataset.id) { ladderRow = tr.dataset.id; $$('#priceTbl tr').forEach(x => x.classList.toggle('sel', x === tr)); renderLadder(); }
 });
 function updatePriceLive() {
   let sumSales = 0, sumOp = 0, sumQty = 0;
-  S.priceRows.forEach(r => {
+  PR().forEach(r => {
     const tr = $(`#priceTbl tr[data-id="${r.id}"]`); if (!tr) return;
     const c = priceRowCalc(r); const q = num(r.qty) || 0;
     if (isFinite(c.final)) { sumSales += c.final * q; sumOp += c.opAmt * q; sumQty += q; }
@@ -593,7 +630,7 @@ function fillPriceFromERP(r, force) {
   if (it.lastBuy && (!isFinite(num(r.price)) || force)) { r.cur = 'KRW'; r.div = '국내'; r.price = Math.round(it.lastBuy.price * 100) / 100; toast(`${r.code}: 최근 매입단가 ${won(it.lastBuy.price)}원 (${it.lastBuy.date}, ${it.lastBuy.sup})`); }
   save();
 }
-$('#priceAdd').onclick = () => { S.priceRows.push({ id: uid(), name: '', code: '', div: '수입', cur: 'USD', price: '', qty: '', sga: '', op: '', final: '', pick: true }); save(); renderPrice(); };
+$('#priceAdd').onclick = () => { PR().push(blankPriceRow()); save(); renderPrice(); };
 $('#pricePaste').onclick = () => { $('#pasteArea').value = ''; $('#dlgPaste').showModal(); };
 $('#pasteCancel').onclick = () => $('#dlgPaste').close();
 $('#pasteOk').onclick = () => {
@@ -603,7 +640,7 @@ $('#pasteOk').onclick = () => {
     const c = l.split('\t'); if (c.length < 2) continue;
     if (/품목|상품/.test(c[0]) && /코드/.test(c[1] || '')) continue;
     const cur = (c[3] || 'KRW').trim().toUpperCase();
-    S.priceRows.push({ id: uid(), name: (c[0] || '').trim(), code: (c[1] || '').trim(), div: /국내/.test(c[2]) ? '국내' : '수입', cur: ['USD', 'CNY', 'KRW'].includes(cur) ? cur : 'KRW', price: num(c[4]) || '', qty: num(c[5]) || '', sga: '', op: '', final: '', pick: true }); n++;
+    PR().push({ id: uid(), name: (c[0] || '').trim(), code: (c[1] || '').trim(), div: /국내/.test(c[2]) ? '국내' : '수입', cur: ['USD', 'CNY', 'KRW'].includes(cur) ? cur : 'KRW', price: num(c[4]) || '', qty: num(c[5]) || '', sga: '', op: '', final: '', pick: true }); n++;
   }
   save(); renderPrice(); $('#dlgPaste').close(); toast(`${n}개 품목을 추가했습니다`);
 };
@@ -1356,9 +1393,10 @@ async function buildPropPpt() {
 
 /* ---------- 유통가 제안 PPT ---------- */
 async function buildPricePpt() {
-  const rows = S.priceRows.filter(r => r.pick && isFinite(priceRowCalc(r).final));
+  const rows = PR().filter(r => r.pick && isFinite(priceRowCalc(r).final));
   if (!rows.length) { toast('보고 칸에 체크된 품목이 없습니다'); return null; }
-  const title = rows.length === 1 ? `${rows[0].name} 유통가 제안` : `${rows[0].name} 외 ${rows.length - 1}건 유통가 제안`;
+  const ps = curPS(); const auto = rows.length === 1 ? `${rows[0].name} 유통가 제안` : `${rows[0].name} 외 ${rows.length - 1}건 유통가 제안`;
+  const title = ps.title && !/^(새 판매가 건|판매가 건 \d+)$/.test(ps.title) ? ps.title : auto;
   const pres = newPres(title); if (!pres) return null; const st = ST();
   const foot = `${st.footerOrg} | ${title}`;
   cover(pres, { kicker: 'PRICE REPORT', title: '최종 유통가 제안', subtitle: `${rows.length}개 품목 · 대리점가(제안 최저가) · 소비자가\n${st.fxMonth} 환율 USD ${num(st.fxUsd).toFixed(2)} · CNY ${num(st.fxCny).toFixed(2)}`, footer: `${st.footerOrg.split('→')[0].trim()}  |  ${today()}` });
@@ -1381,7 +1419,7 @@ async function buildPricePpt() {
   const body = rows.slice(0, 13).map(r => { const c = priceRowCalc(r); return [{ text: r.code || r.name, options: { bold: true } }, { text: won(c.bep), options: { align: 'right', color: C.soft } }, ...ops.map(o => ({ text: won(priceOf(c.cost, r.sga, o).base), options: { align: 'right', bold: o === num(st.op), color: o === num(st.op) ? C.teal : C.ink } }))]; });
   s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW: [1.8, 1.0, ...ops.map(() => 6.2 / ops.length)], rowH: 0.27, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
   T(s, 'BEP 아래로 팔면 팔수록 손해입니다. 청록 열이 제안 대리점가(최저가)이며, 이익률을 올려 더 높은 단가로 협상할 수 있습니다.', 0.5, 4.95, 9, 0.2, { fontSize: 7.5, color: C.soft });
-  return finish(pres, `유통가제안_${today()}`, title);
+  return finish(pres, `유통가제안_${title}_${today()}`.replace(/\s+/g, '_'), title);
 }
 
 /* ---------- 부품 대체 PPT ---------- */
@@ -1500,7 +1538,7 @@ $('#fileIn').onchange = e => { if (e.target.files.length) loadFiles([...e.target
 drop.addEventListener('drop', e => { const fs = [...e.dataTransfer.files].filter(f => /\.xlsx?$/i.test(f.name)); if (fs.length) loadFiles(fs); });
 $('#expJson').onclick = () => downloadBlob(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }), `제품제안대시보드_백업_${today()}.json`);
 $('#impJson').onclick = () => $('#impFile').click();
-$('#impFile').onchange = async e => { try { const o = JSON.parse(await e.target.files[0].text()); if (!o.settings || !o.priceRows) throw new Error('형식이 다릅니다'); S = o; save(); renderAll(); toast('가져왔습니다'); } catch (err) { toast('가져오지 못했습니다: ' + err.message, 5000); } };
+$('#impFile').onchange = async e => { try { const o = JSON.parse(await e.target.files[0].text()); if (!o.settings || !(o.priceRows || o.priceSets)) throw new Error('형식이 다릅니다'); S = normPrice(o); save(); renderAll(); toast('가져왔습니다'); } catch (err) { toast('가져오지 못했습니다: ' + err.message, 5000); } };
 $('#resetAll').onclick = async () => { if (!(await ask('입력한 내용을 모두 지우고 처음 상태로 되돌릴까요? MMS 데이터는 그대로 둡니다.', '초기화'))) return; S = freshState(); save(); renderAll(); toast('처음 상태로 되돌렸습니다'); };
 
 function renderHdr() { const s = ST(); $('#hdrMeta').textContent = `${s.fxMonth === '직접' ? '직접 입력' : s.fxMonth} · USD ${num(s.fxUsd).toFixed(2)} · CNY ${num(s.fxCny).toFixed(2)} · 판관비 ${s.sga}% · 영업이익 ${s.op}%`; renderPriceFlow(); }
@@ -1508,10 +1546,11 @@ function renderAll() { renderSettings(); renderHdr(); renderDataStatus(); render
 document.addEventListener('change', e => { if (setKeys.includes(e.target.id) || e.target.id === 'fxMonth' || e.target.id === 'fxTable') renderPrice(); });
 
 (async function init() {
-  const st = await KV.get('state');
+  let st = await KV.get('state');
+  try { const p = JSON.parse(localStorage.getItem('ts-dash-pending') || 'null'); if (p && p.settings && (!st || (p._savedAt || 0) > (st._savedAt || 0))) st = p; localStorage.removeItem('ts-dash-pending'); } catch (e) { }
   S = st && st.settings ? st : freshState();
   S.settings = Object.assign(defaultSettings(), S.settings);
-  (S.subs || []).forEach(normSub);
+  (S.subs || []).forEach(normSub); normPrice(S); flushSave();
   buildD(await KV.get('raw'));
   renderAll();
   spStart(); // 로그인 기록이 있으면 창 없이 바뀐 파일만 받아 옴
