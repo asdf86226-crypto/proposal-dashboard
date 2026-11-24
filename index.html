@@ -224,10 +224,9 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
       <input type="file" id="fileIn" accept=".xlsx,.xls" multiple hidden></div>
     <div class="status" id="dataStatus" style="margin-top:10px"></div>
     <div class="row" style="margin-top:10px">
-      <label class="fld" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="exInternal"> 판매량에서 그룹사 거래 제외</label>
-      <div class="fld"><label>그룹사 이름 (쉼표로 구분)</label><input id="internalNames" style="width:220px"></div>
+      <div class="fld"><label>그룹사 이름 (이 이름이 들어간 거래처는 판매량 · 매입단가에서 뺌)</label><input id="internalNames" style="width:220px"></div>
     </div>
-    <p class="hint" style="margin-top:6px">태성정밀 → 플로우텍처럼 회사끼리 넘긴 수량을 판매량에서 뺄지 정합니다. 쉐어포인트에서 두 회사 자료를 함께 받으면 같은 제품이 두 번 세지지 않도록 <b>자동으로 뺍니다</b>. 최근 매입단가도 그룹사 거래보다 외부 공급사 매입을 먼저 씁니다.</p>
+    <p class="hint" style="margin-top:6px">태성정밀 ↔ 플로우텍처럼 회사끼리 넘긴 거래는 <b>항상 판매량에서 뺍니다</b>(같은 제품이 두 번 세지지 않도록). 최근 매입단가도 그룹사 거래보다 외부 공급사 매입을 먼저 씁니다.</p>
   </div>
 
   <div class="grid2">
@@ -707,7 +706,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 function spStart() { if (!spOk()) { spLine('na'); return; } spLine(ST().spLast ? 'on' : 'checking'); spSync(false); }
 
 /* MMS 자료 → 품목별 집계. raw 는 직접 넣은 파일({buy, sell, bom}) 또는 쉐어포인트에서 받은 두 회사 자료({parts}) */
-const exInt = () => !!(ST().exInternal || (D && D.meta.multi));
+const exInt = () => true; // 그룹사(태성정밀 ↔ 플로우텍) 거래는 항상 판매량에서 뺀다
 function buildD(raw) {
   const tables = kind => raw && raw.parts ? Object.entries(raw.parts).filter(([k]) => k.endsWith('|' + kind)).map(([k, v]) => Object.assign({ company: k.split('|')[0] }, v)) : (raw && raw[kind] ? [Object.assign({ company: '' }, raw[kind])] : []);
   const T = { buy: tables('buy'), sell: tables('sell'), bom: tables('bom') };
@@ -934,7 +933,7 @@ function renderUsage(r) {
     if (i % 3 === 0) g += `<text x="${x + bw / 2}" y="${H - 6}" font-size="10.5" text-anchor="middle" style="fill:var(--ink-soft)">${m.slice(2)}</text>`;
   });
   g += '</svg>';
-  el.innerHTML = `<p class="hint">진한 막대가 계산에 쓴 12개월(${D.meta.win[0]} ~ ${D.meta.win[1]})입니다. 청록 = 이 품목 자체 판매, 회색청 = 상위 제품 판매 × BOM 소요량. ${exInt() ? '그룹사(태성정밀 ↔ 플로우텍) 거래는 뺐습니다.' : '그룹사 거래를 포함합니다.'}</p>${g}
+  el.innerHTML = `<p class="hint">진한 막대가 계산에 쓴 12개월(${D.meta.win[0]} ~ ${D.meta.win[1]})입니다. 청록 = 이 품목 자체 판매, 회색청 = 상위 제품 판매 × BOM 소요량. 그룹사(태성정밀 ↔ 플로우텍) 거래는 뺐습니다.</p>${g}
    <div class="grid2" style="margin-top:8px">
      <div><h3>이 부품이 들어가는 제품 (상위 10)</h3>${u.parents.length ? `<div class="tbl-wrap"><table><thead><tr><th>제품코드</th><th>제품명</th><th>개당 소요</th><th>12개월 소요량</th></tr></thead><tbody>${u.parents.slice(0, 10).map(p => `<tr><td>${esc(p.code)}</td><td>${esc(p.name)}</td><td class="n">${+p.ratio.toFixed(3)}</td><td class="n">${Math.round(p.qty12).toLocaleString()}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">BOM에 상위 제품이 없습니다.</p>'}</div>
      <div><h3>최근 매입 이력</h3>${r.it && r.it.buys && r.it.buys.length ? `<div class="tbl-wrap"><table><thead><tr><th>일자</th><th>구매처</th><th>수량</th><th>단가</th></tr></thead><tbody>${r.it.buys.map(b => `<tr><td>${b.date}</td><td>${esc(b.sup)}</td><td class="n">${b.qty.toLocaleString()}</td><td class="n">${won(b.price)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">구매 이력이 없습니다.</p>'}
@@ -1349,13 +1348,12 @@ const setKeys = ['fxUsd', 'fxCny', 'costImport', 'costAgent', 'costDomestic', 's
 function parseFx() { return lines(ST().fxTable).map(l => l.split(/[,\t ]+/)).filter(a => /^\d{4}-\d{2}$/.test(a[0])).map(a => ({ m: a[0], usd: num(a[1]), cny: num(a[2]) })); }
 function renderSettings() {
   const s = ST(); setKeys.forEach(k => { const el = $('#' + k); if (el) el.value = s[k]; });
-  $('#fxTable').value = s.fxTable; $('#exInternal').checked = !!s.exInternal;
+  $('#fxTable').value = s.fxTable;
   const fx = parseFx(); $('#fxMonth').innerHTML = fx.map(f => `<option ${f.m === s.fxMonth ? 'selected' : ''}>${f.m}</option>`).join('') + `<option value="직접" ${!fx.some(f => f.m === s.fxMonth) ? 'selected' : ''}>직접 입력</option>`;
 }
 setKeys.forEach(k => { const el = $('#' + k); if (!el) return; el.addEventListener('input', () => { S.settings[k] = el.value; if (k === 'fxUsd' || k === 'fxCny') { S.settings.fxMonth = '직접'; $('#fxMonth').value = '직접'; } save(); renderHdr(); if (k === 'internalNames') rebuildD(); }); });
 $('#fxMonth').addEventListener('change', e => { const f = parseFx().find(x => x.m === e.target.value); S.settings.fxMonth = e.target.value; if (f) { S.settings.fxUsd = f.usd; S.settings.fxCny = f.cny; } save(); renderSettings(); renderHdr(); });
 $('#fxTable').addEventListener('change', e => { S.settings.fxTable = e.target.value; const fx = parseFx(); const last = fx[fx.length - 1]; if (last && S.settings.fxMonth !== '직접') { const f = fx.find(x => x.m === S.settings.fxMonth) || last; S.settings.fxMonth = f.m; S.settings.fxUsd = f.usd; S.settings.fxCny = f.cny; } save(); renderSettings(); renderHdr(); });
-$('#exInternal').addEventListener('change', e => { S.settings.exInternal = e.target.checked; save(); rebuildD(); });
 async function rebuildD() { const raw = await KV.get('raw'); buildD(raw); renderDataStatus(); }
 function renderDataStatus() {
   if (!D) { $('#dataStatus').innerHTML = '<span class="red">아직 연결된 MMS 파일이 없습니다.</span> 파일 없이도 판매가 산출 · 제안서는 쓸 수 있고, 부품 대체는 값을 직접 넣으면 됩니다.'; return; }
