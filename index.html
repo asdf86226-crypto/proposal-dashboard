@@ -481,19 +481,19 @@ function renderPrice() {
       <td><select data-k="cur">${['USD', 'CNY', 'KRW'].map(x => `<option ${r.cur === x ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
       <td><input type="number" step="any" data-k="price" value="${esc(r.price)}" style="width:86px"></td>
       <td><input type="number" data-k="qty" value="${esc(r.qty)}" style="width:66px"></td>
-      <td class="n">${won(c.cost)}</td>
+      <td class="n" data-c="cost">${won(c.cost)}</td>
       <td><input type="number" step="any" data-k="sga" value="${esc(r.sga)}" placeholder="${ST().sga}" style="width:58px"></td>
       <td><input type="number" step="any" data-k="op" value="${esc(r.op)}" placeholder="${ST().op}" style="width:58px"></td>
-      <td class="n">${won(c.bep)}</td>
-      <td><input type="number" data-k="final" value="${esc(r.final)}" placeholder="${isFinite(c.base) ? c.base : ''}" style="width:86px;${c.below ? 'background:#FBEDEA' : ''}"></td>
-      <td class="n strong teal">${won(c.final)}</td>
-      <td class="n strong">${won(c.consumer)}</td>
-      <td class="n">${won(c.opAmt)}</td>
-      <td class="n ${c.opRate < 0 ? 'red' : ''}">${pct(c.opRate)}</td>
-      <td class="n">${won(c.opAmt * q)}</td>
+      <td class="n" data-c="bep">${won(c.bep)}</td>
+      <td><input type="number" data-k="final" value="${esc(r.final)}" placeholder="${isFinite(c.base) ? c.base : ''}" style="width:86px;${c.below ? 'background:var(--red-soft)' : ''}"></td>
+      <td class="n strong teal" data-c="final">${won(c.final)}</td>
+      <td class="n strong" data-c="consumer">${won(c.consumer)}</td>
+      <td class="n" data-c="opAmt">${won(c.opAmt)}</td>
+      <td class="n ${c.opRate < 0 ? 'red' : ''}" data-c="opRate">${pct(c.opRate)}</td>
+      <td class="n" data-c="opSum">${won(c.opAmt * q)}</td>
       <td><button class="x" data-del="1" title="삭제">×</button></td></tr>`;
   });
-  h += `</tbody><tfoot><tr><td colspan="6" class="strong" style="padding:8px">합계</td><td class="n strong">${sumQty.toLocaleString()}</td><td colspan="5"></td><td class="n mut">매출 ${won(sumSales)}</td><td></td><td></td><td class="n strong">${pct(sumOp / sumSales)}</td><td class="n strong">${won(sumOp)}</td><td></td></tr></tfoot>`;
+  h += `</tbody><tfoot><tr><td colspan="6" class="strong" style="padding:8px">합계</td><td class="n strong" data-f="qty">${sumQty.toLocaleString()}</td><td colspan="5"></td><td class="n mut" data-f="sales">매출 ${won(sumSales)}</td><td></td><td></td><td class="n strong" data-f="rate">${pct(sumOp / sumSales)}</td><td class="n strong" data-f="op">${won(sumOp)}</td><td></td></tr></tfoot>`;
   $('#priceTbl').innerHTML = h;
   renderLadder();
 }
@@ -515,22 +515,38 @@ $('#priceTbl').addEventListener('input', e => {
   const r = S.priceRows.find(x => x.id === tr.dataset.id);
   r[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; save();
   if (k === 'code' || k === 'name') return; // 다시 그리면 커서가 사라지므로 blur 때 처리
-  rerenderPriceKeepFocus(e.target);
+  updatePriceLive(); // 입력 칸은 그대로 두고 계산 칸만 바꿈 (커서 유지)
 });
 $('#priceTbl').addEventListener('change', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return; const k = e.target.dataset.k;
   if (k === 'code') { const r = S.priceRows.find(x => x.id === tr.dataset.id); fillPriceFromERP(r, false); }
-  renderPrice();
+  if (k === 'code' || k === 'div' || k === 'cur') renderPriceKeepFocus(); else updatePriceLive();
 });
+function renderPriceKeepFocus() { // 탭으로 넘어간 칸을 기억했다가 다시 그린 뒤 그 칸으로 돌려놓음
+  setTimeout(() => { const a = document.activeElement; const tr = a && a.closest && a.closest('#priceTbl tr[data-id]');
+    const key = tr && a.dataset.k ? [tr.dataset.id, a.dataset.k] : null; renderPrice();
+    if (key) { const n = $(`#priceTbl tr[data-id="${key[0]}"] [data-k="${key[1]}"]`); if (n) n.focus(); } }, 0);
+}
 $('#priceTbl').addEventListener('click', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return;
   if (e.target.dataset.del) { S.priceRows = S.priceRows.filter(x => x.id !== tr.dataset.id); save(); renderPrice(); return; }
   if (ladderRow !== tr.dataset.id) { ladderRow = tr.dataset.id; $$('#priceTbl tr').forEach(x => x.classList.toggle('sel', x === tr)); renderLadder(); }
 });
-function rerenderPriceKeepFocus(el) {
-  const id = el.closest('tr').dataset.id, k = el.dataset.k, pos = el.selectionStart;
-  renderPrice();
-  const n = $(`#priceTbl tr[data-id="${id}"] [data-k="${k}"]`); if (n) { n.focus(); try { if (pos != null) n.setSelectionRange(pos, pos); } catch (e) { } }
+function updatePriceLive() {
+  let sumSales = 0, sumOp = 0, sumQty = 0;
+  S.priceRows.forEach(r => {
+    const tr = $(`#priceTbl tr[data-id="${r.id}"]`); if (!tr) return;
+    const c = priceRowCalc(r); const q = num(r.qty) || 0;
+    if (isFinite(c.final)) { sumSales += c.final * q; sumOp += c.opAmt * q; sumQty += q; }
+    const set = (k, v) => { const td = $(`[data-c="${k}"]`, tr); if (td) td.textContent = v; };
+    set('cost', won(c.cost)); set('bep', won(c.bep)); set('final', won(c.final)); set('consumer', won(c.consumer));
+    set('opAmt', won(c.opAmt)); set('opRate', pct(c.opRate)); set('opSum', won(c.opAmt * q));
+    $('[data-c="opRate"]', tr).classList.toggle('red', c.opRate < 0);
+    const fi = $('[data-k="final"]', tr); fi.placeholder = isFinite(c.base) ? c.base : ''; fi.style.background = c.below ? 'var(--red-soft)' : '';
+  });
+  const f = (k, v) => { const td = $(`#priceTbl [data-f="${k}"]`); if (td) td.textContent = v; };
+  f('qty', sumQty.toLocaleString()); f('sales', '매출 ' + won(sumSales)); f('rate', pct(sumOp / sumSales)); f('op', won(sumOp));
+  renderLadder();
 }
 function fillPriceFromERP(r, force) {
   const it = itemOf(r.code); if (!it) return;
@@ -962,7 +978,14 @@ $('#propEdit').addEventListener('input', e => {
   if (t.dataset.compare) { p.pricing.compare[t.dataset.compare] = t.value; save(); return; }
 });
 $('#propEdit').addEventListener('change', e => { const t = e.target; if (t.dataset.cost || t.dataset.compare || /^cost\.(models|finishes|setNames)/.test(t.dataset.p || '')) renderPropKeep(); });
-function renderPropKeep() { const y = scrollY; renderProp(); scrollTo(0, y); }
+function renderPropKeep() {
+  setTimeout(() => {
+    const a = document.activeElement; const d = a && a.dataset ? a.dataset : {};
+    const key = d.p ? ['p', d.p] : d.cost ? ['cost', d.cost] : d.compare ? ['compare', d.compare] : null;
+    const y = scrollY; renderProp(); scrollTo(0, y);
+    if (key) { const n = $(`#propEdit [data-${key[0]}="${CSS.escape(key[1])}"]`); if (n) n.focus({ preventScroll: true }); }
+  }, 0);
+}
 let imgPath = null;
 $('#propEdit').addEventListener('click', e => {
   const t = e.target; const p = P();
