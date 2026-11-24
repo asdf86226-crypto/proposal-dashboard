@@ -33,7 +33,7 @@
   --solid:#E4EAEE; --on-solid:#10171C; --bar-out:#3A4852; --bar-own-out:#1F5A60; --shadow:rgba(0,0,0,.5); color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans)}
-header{background:var(--hdr);color:var(--hdr-fg);margin-top:calc(-1 * env(safe-area-inset-top, 0px));padding-top:calc(env(safe-area-inset-top, 0px) + 14px);padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+header{background:var(--hdr);color:var(--hdr-fg);margin-top:calc(-1 * env(safe-area-inset-top, 0px));padding-top:calc(env(safe-area-inset-top, 0px) + 14px);padding-left:max(28px, env(safe-area-inset-left, 0px));padding-right:max(28px, env(safe-area-inset-right, 0px))}
 .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .brand .k{color:var(--hdr-k);font-size:11px;font-weight:700;letter-spacing:.12em}
 .brand h1{margin:0;font-size:20px}
@@ -49,7 +49,8 @@ header{background:var(--hdr);color:var(--hdr-fg);margin-top:calc(-1 * env(safe-a
 nav{display:flex;gap:2px;margin-top:12px;overflow-x:auto}
 nav button{background:transparent;border:0;color:var(--hdr-mut);padding:10px 16px;font:600 14px var(--sans);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
 nav button.on{color:var(--hdr-fg);border-bottom-color:var(--teal)}
-main{max-width:1320px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+main{max-width:1880px;margin:0 auto;padding-block:20px 60px;padding-left:max(28px, env(safe-area-inset-left, 0px));padding-right:max(28px, env(safe-area-inset-right, 0px))}
+@media (max-width:600px){main{padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}}
 .tab{display:none}.tab.on{display:block}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
 .card h2{margin:0 0 4px;font-size:16px}
