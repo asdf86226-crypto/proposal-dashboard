@@ -1679,6 +1679,27 @@ async function buildSubPpt() {
     y += 0.72;
     const memo = [x.note, D ? `MMS 기준: 구매 ${D.meta.buyAsOf || '–'} · 판매 ${D.meta.sellAsOf || '–'}${D.meta.win ? `, 사용량 ${D.meta.win[0]}~${D.meta.win[1]}` : ''}` : ''].filter(Boolean).join('\n\n');
     if (5.15 - y > 0.45) { box(s, 0.5, y, 9, 5.15 - y, C.bg, null); T(s, '메모', 0.65, y + 0.08, 8.7, 0.2, { fontSize: 8.5, bold: true, color: C.teal }); T(s, memo, 0.65, y + 0.32, 8.7, 5.15 - y - 0.4, { fontSize: 8, color: C.ink }); }
+    // 품목별 사용량 근거 (화면의 '사용량 근거'와 같은 내용)
+    x.items.forEach((pt, pi) => {
+      const r = R.parts[pi]; if (!r.us || !D || !D.meta.win) return;
+      const u = r.us; const s2 = base(pres, 'USAGE', `사용량 근거 — ${pt.oldCode} ${pt.oldName || ''}`.trim(), ++pg, foot);
+      const labels = u.months.map(m => m.slice(2));
+      const inW = u.months.map(m => m >= D.meta.win[0] && m <= D.meta.win[1]);
+      T(s2, `월별 사용량 (개) — 진한 막대가 계산에 쓴 12개월 (${D.meta.win[0]} ~ ${D.meta.win[1]}), 자체 판매 + 상위 제품 판매 × BOM 소요량, 그룹사 거래 제외`, 0.5, 1.05, 9, 0.2, { fontSize: 8, color: C.soft });
+      s2.addChart('bar', [{ name: '계산 기간', labels, values: u.total.map((v, k) => inW[k] ? Math.round(v) : 0) }, { name: '그 외', labels, values: u.total.map((v, k) => inW[k] ? 0 : Math.round(v)) }],
+        { x: 0.4, y: 1.25, w: 9.2, h: 1.75, barDir: 'col', barGrouping: 'stacked', chartColors: [C.steel, 'C9D3D9'], barGapWidthPct: 25, catAxisLabelFontSize: 6.5, valAxisLabelFontSize: 6.5, valAxisLabelFormatCode: '#,##0', catAxisLabelFontFace: FONT, valAxisLabelFontFace: FONT, valGridLine: { color: 'E6EAED', size: 0.5 }, showLegend: false });
+      const th = (arr, al) => arr.map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: al[k] } }));
+      const topt = (x0, w, colW) => ({ x: x0, y: 3.25, w, colW, rowH: 0.19, fontFace: FONT, fontSize: 7, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+      T(s2, '이 부품이 들어가는 제품 (상위 8)', 0.5, 3.05, 4.4, 0.2, { fontSize: 8.5, bold: true });
+      const par = u.parents.slice(0, 8);
+      if (par.length) s2.addTable([th(['제품코드', '제품명', '개당 소요', '12개월 소요량'], ['left', 'left', 'right', 'right']), ...par.map(q => [q.code, q.name, String(+q.ratio.toFixed(3)), Math.round(q.qty12).toLocaleString()].map((v, k) => ({ text: v, options: { align: k > 1 ? 'right' : 'left' } })))], topt(0.5, 4.4, [1.05, 2.05, 0.55, 0.75]));
+      else T(s2, 'BOM에 상위 제품이 없습니다.', 0.5, 3.3, 4.4, 0.2, { fontSize: 7.5, color: C.soft });
+      T(s2, '최근 매입 이력', 5.1, 3.05, 4.4, 0.2, { fontSize: 8.5, bold: true });
+      const buys = (r.it && r.it.buys || []).slice(0, 8);
+      if (buys.length) s2.addTable([th(['일자', '구매처', '입고 회사', '수량', '단가'], ['left', 'left', 'left', 'right', 'right']), ...buys.map(b => [b.date, b.sup, b.co || '–', b.qty.toLocaleString(), won(b.price)].map((v, k) => ({ text: v, options: { align: k > 2 ? 'right' : 'left' } })))], topt(5.1, 4.4, [0.85, 1.35, 0.75, 0.65, 0.8]));
+      else T(s2, '구매 이력이 없습니다.', 5.1, 3.3, 4.4, 0.2, { fontSize: 7.5, color: C.soft });
+      T(s2, `자체 판매 12개월 ${Math.round(u.own12).toLocaleString()}개 · BOM 포함 ${Math.round(u.total12).toLocaleString()}개${r.it && r.it.buy12 ? ` · 구매 12개월 ${Math.round(r.it.buy12.qty).toLocaleString()}개` : ''}  →  검토에 쓴 연간 사용량 ${isFinite(r.qty) ? Math.round(r.qty).toLocaleString() + '개 (' + r.qtySrc + ')' : '–'}`, 0.5, 5.0, 9, 0.2, { fontSize: 8, bold: true, color: C.teal });
+    });
   }
   return finish(pres, `부품대체검토_${list.length === 1 ? (list[0].title || '') : list.length + '건'}_${today()}`.replace(/\s+/g, '_'), title);
 }
