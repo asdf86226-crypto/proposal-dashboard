@@ -844,10 +844,11 @@ function buildD(raw) {
     for (const [c, arr] of Object.entries(buys)) {
       arr.sort((a, b) => b.date.localeCompare(a.date));
       const valid = arr.filter(x => x.qty > 0 && isFinite(x.price) && x.price > 0);
-      const ext = valid.filter(x => !x.internal);
+      const ext = valid.filter(x => !x.internal && x.sup.trim()); // 구매처가 빈 전표는 계산에서 뺌 (표에만 회색으로)
+      const blank = valid.filter(x => !x.internal && !x.sup.trim());
       // 그룹사(태성정밀 ↔ 플로우텍) 매입은 빼고 외부 공급사 매입만 씀. 외부 매입이 하나도 없을 때만 그룹사 매입으로 대신함
       const use = ext.length ? ext : valid;
-      const x = items[c]; x.buys = use.slice(0, 8); x.lastBuy = use[0] || null; x.buyInternalOnly = !ext.length && valid.length > 0;
+      const x = items[c]; x.buys = (ext.length ? [...ext, ...blank].sort((a, b) => b.date.localeCompare(a.date)) : use).slice(0, 8); x.lastBuy = use[0] || null; x.buyInternalOnly = !ext.length && valid.length > 0;
       const y = use.filter(v => v.date > from); x.buy12 = { qty: y.reduce((s, v) => s + v.qty, 0), amt: y.reduce((s, v) => s + v.amt, 0) };
     }
     meta.buyAsOf = maxD;
@@ -1128,7 +1129,7 @@ function renderUsage() {
   el.innerHTML = `<p class="hint">진한 막대가 계산에 쓴 12개월(${D.meta.win[0]} ~ ${D.meta.win[1]})입니다. 청록 = 이 품목 자체 판매, 회색청 = 상위 제품 판매 × BOM 소요량. 그룹사(태성정밀 ↔ 플로우텍) 거래는 뺐습니다.</p>${g}
    <div class="grid2" style="margin-top:8px">
      <div><h3>이 부품이 들어가는 제품 (상위 10)</h3>${u.parents.length ? `<div class="tbl-wrap"><table><thead><tr><th>제품코드</th><th>제품명</th><th>개당 소요</th><th>12개월 소요량</th></tr></thead><tbody>${u.parents.slice(0, 10).map(q => `<tr><td>${esc(q.code)}</td><td>${esc(q.name)}</td><td class="n">${+q.ratio.toFixed(3)}</td><td class="n">${Math.round(q.qty12).toLocaleString()}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">BOM에 상위 제품이 없습니다.</p>'}</div>
-     <div><h3>최근 매입 이력 <span class="mut" style="font-weight:400;font-size:12px">${r.it && r.it.buyInternalOnly ? '— 외부 매입이 없어 그룹사 매입을 보여 줍니다' : '— 그룹사 매입 제외'}</span></h3>${r.it && r.it.buys && r.it.buys.length ? `<div class="tbl-wrap"><table><thead><tr><th>일자</th><th>구매처</th><th>입고 회사</th><th>수량</th><th>단가</th></tr></thead><tbody>${r.it.buys.map(b => `<tr><td>${b.date}</td><td>${b.sup ? esc(b.sup) : '<span class="mut">(이카운트에 구매처 없음)</span>'}</td><td>${esc(b.co || '–')}</td><td class="n">${b.qty.toLocaleString()}</td><td class="n">${won(b.price)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">구매 이력이 없습니다.</p>'}
+     <div><h3>최근 매입 이력 <span class="mut" style="font-weight:400;font-size:12px">${r.it && r.it.buyInternalOnly ? '— 외부 매입이 없어 그룹사 매입을 보여 줍니다' : '— 그룹사 매입 제외'}</span></h3>${r.it && r.it.buys && r.it.buys.length ? `<div class="tbl-wrap"><table><thead><tr><th>일자</th><th>구매처</th><th>입고 회사</th><th>수량</th><th>단가</th></tr></thead><tbody>${r.it.buys.map(b => `<tr${b.sup ? '' : ' class="mut"'}><td>${b.date}</td><td>${b.sup ? esc(b.sup) : '<span class="mut">(구매처 없음 · 계산 제외)</span>'}</td><td>${esc(b.co || '–')}</td><td class="n">${b.qty.toLocaleString()}</td><td class="n">${won(b.price)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">구매 이력이 없습니다.</p>'}
      <p class="status">자체 판매 12개월 ${Math.round(u.own12).toLocaleString()}개 · BOM 포함 ${Math.round(u.total12).toLocaleString()}개${r.it && r.it.buy12 ? ` · 구매 12개월 ${Math.round(r.it.buy12.qty).toLocaleString()}개` : ''}</p></div>
    </div>`;
 }
@@ -1698,7 +1699,7 @@ async function buildSubPpt() {
       else T(s2, 'BOM에 상위 제품이 없습니다.', 0.5, 3.3, 4.4, 0.2, { fontSize: 7.5, color: C.soft });
       T(s2, '최근 매입 이력', 5.1, 3.05, 4.4, 0.2, { fontSize: 8.5, bold: true });
       const buys = (r.it && r.it.buys || []).slice(0, 8);
-      if (buys.length) s2.addTable([th(['일자', '구매처', '입고 회사', '수량', '단가'], ['left', 'left', 'left', 'right', 'right']), ...buys.map(b => [b.date, b.sup || '(구매처 없음)', b.co || '–', b.qty.toLocaleString(), won(b.price)].map((v, k) => ({ text: v, options: { align: k > 2 ? 'right' : 'left' } })))], topt(5.1, 4.4, [0.85, 1.35, 0.75, 0.65, 0.8]));
+      if (buys.length) s2.addTable([th(['일자', '구매처', '입고 회사', '수량', '단가'], ['left', 'left', 'left', 'right', 'right']), ...buys.map(b => [b.date, b.sup || '(구매처 없음 · 계산 제외)', b.co || '–', b.qty.toLocaleString(), won(b.price)].map((v, k) => ({ text: v, options: { align: k > 2 ? 'right' : 'left', color: b.sup ? C.ink : C.mut } })))], topt(5.1, 4.4, [0.85, 1.35, 0.75, 0.65, 0.8]));
       else T(s2, '구매 이력이 없습니다.', 5.1, 3.3, 4.4, 0.2, { fontSize: 7.5, color: C.soft });
       T(s2, `자체 판매 12개월 ${Math.round(u.own12).toLocaleString()}개 · BOM 포함 ${Math.round(u.total12).toLocaleString()}개${r.it && r.it.buy12 ? ` · 구매 12개월 ${Math.round(r.it.buy12.qty).toLocaleString()}개` : ''}  →  검토에 쓴 연간 사용량 ${isFinite(r.qty) ? Math.round(r.qty).toLocaleString() + '개 (' + r.qtySrc + ')' : '–'}`, 0.5, 5.0, 9, 0.2, { fontSize: 8, bold: true, color: C.teal });
     });
