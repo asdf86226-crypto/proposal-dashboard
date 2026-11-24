@@ -124,6 +124,13 @@ dialog{border:0;border-radius:12px;padding:0;max-width:560px;width:92vw;box-shad
 dialog .hd{background:var(--hdr);color:var(--hdr-fg);padding:12px 18px;font-weight:700}
 dialog .bd{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
 dialog .ft{padding:12px 18px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:99px;padding:4px 6px 4px 12px;font:600 12.5px var(--sans);cursor:pointer}
+.chip.on{background:var(--teal);border-color:var(--teal);color:var(--on-solid)}
+.chip small{font-weight:400;opacity:.75}
+.chip .x{font-size:13px;padding:0 4px;color:inherit;opacity:.6}
+.chip .x:hover{opacity:1}
+.chips .empty{font-size:12px;color:var(--muted)}
 .ladder{display:flex;gap:6px;flex-wrap:wrap}
 .ladder div{border:1px solid var(--line);border-radius:6px;padding:6px 10px;text-align:center;min-width:92px;background:var(--panel)}
 .ladder div.on{border-color:var(--teal);background:var(--teal-soft)}
@@ -287,7 +294,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
     <p class="hint">파워오토메이트 흐름 주소를 넣으면 'PPT를 원드라이브에 저장 → 받는 사람에게 팀즈 채팅으로 링크 발송'까지 버튼 한 번으로 끝납니다. 비워 두면 PPT를 내려받고 팀즈 채팅 창을 열어 주므로, 파일을 끌어다 놓아 보내면 됩니다.</p>
     <div class="row">
       <div class="fld" style="flex:1;min-width:260px"><label>파워오토메이트 HTTP 주소</label><input id="paUrl" placeholder="https://prod-xx.koreacentral.logic.azure.com/workflows/..." style="width:100%"></div>
-      <div class="fld" style="flex:1;min-width:220px"><label>기본 받는 사람 (회사 메일, 쉼표로 구분)</label><input id="teamsTo" placeholder="sales1@tsbath.com, sales2@tsbath.com" style="width:100%"></div>
+
       <button class="b" id="paTest">연결 시험</button>
     </div>
     <details class="sec" style="margin-top:12px"><summary>파워오토메이트 흐름 만드는 법</summary><div class="in">
@@ -324,7 +331,11 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
   <div class="hd">팀즈로 보내기</div>
   <div class="bd">
     <div class="fld"><label>파일</label><div id="tmFile" class="strong"></div></div>
-    <div class="fld"><label>받는 사람 (회사 메일, 쉼표로 구분)</label><input id="tmTo"></div>
+    <div class="fld"><label>받는 사람 — 이름을 눌러 고르세요</label>
+      <div class="chips" id="tmChips"></div>
+      <div class="row" style="gap:6px;margin-top:6px"><input id="ctName" placeholder="이름 (예: 안영구 매니저)" style="width:170px"><input id="ctMail" placeholder="회사 메일" style="flex:1;min-width:160px"><button class="b" id="ctAdd">+ 저장</button></div>
+    </div>
+    <div class="fld"><label>그 외 메일 (저장하지 않고 이번만, 쉼표로 구분)</label><input id="tmTo"></div>
     <div class="fld"><label>메시지</label><textarea id="tmMsg" style="min-height:90px"></textarea></div>
     <p class="hint" id="tmHow" style="margin:0"></p>
   </div>
@@ -1599,7 +1610,7 @@ async function buildPropPpt() {
 async function buildPricePpt() {
   const rows = PR().filter(r => r.pick && isFinite(priceRowCalc(r).final));
   if (!rows.length) { toast('보고 칸에 체크된 품목이 없습니다'); return null; }
-  const ps = curPS(); const auto = rows.length === 1 ? `${rows[0].name} 유통가 제안` : `${rows[0].name} 외 ${rows.length - 1}건 유통가 제안`;
+  const ps = curPS(); const nm = (rows[0].name || rows[0].code || '').trim(); const auto = !nm ? `${ps.title || '판매가'} 유통가 제안` : rows.length === 1 ? `${nm} 유통가 제안` : `${nm} 외 ${rows.length - 1}건 유통가 제안`;
   const title = ps.title && !/^(새 판매가 건|판매가 건 \d+)$/.test(ps.title) ? ps.title : auto;
   const pres = newPres(title); if (!pres) return null; const st = ST();
   const foot = `${st.footerOrg} | ${title}`;
@@ -1756,10 +1767,36 @@ const TG = (() => {
   return { ok, send, errorText };
 })();
 
-let tmFile = null;
+let tmFile = null, tmSel = new Set();
+function renderChips() {
+  const cs = ST().contacts || [];
+  $('#tmChips').innerHTML = cs.length ? cs.map((c, i) => `<span class="chip ${tmSel.has(c.email.toLowerCase()) ? 'on' : ''}" data-i="${i}" title="${esc(c.email)}">${esc(c.name)} <small>${esc(c.email.split('@')[0])}</small><button class="x" data-cdel="${i}" title="목록에서 지우기">×</button></span>`).join('')
+    : '<span class="empty">저장된 사람이 없습니다. 아래에 이름과 메일을 넣고 + 저장을 누르세요.</span>';
+}
+$('#tmChips').addEventListener('click', e => {
+  const cs = ST().contacts || [];
+  if (e.target.dataset.cdel != null) { const c = cs[+e.target.dataset.cdel]; ask(`'${c.name}'을(를) 목록에서 지울까요?`, '지우기').then(ok => { if (!ok) return; cs.splice(+e.target.dataset.cdel, 1); tmSel.delete(c.email.toLowerCase()); save(); renderChips(); }); return; }
+  const ch = e.target.closest('.chip'); if (!ch) return; const m = cs[+ch.dataset.i].email.toLowerCase();
+  tmSel.has(m) ? tmSel.delete(m) : tmSel.add(m); renderChips();
+});
+$('#ctAdd').onclick = () => {
+  const name = $('#ctName').value.trim(), email = $('#ctMail').value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('회사 메일 주소를 확인해 주세요'); return; }
+  const cs = (S.settings.contacts = ST().contacts || []);
+  const ex = cs.find(c => c.email.toLowerCase() === email.toLowerCase());
+  if (ex) ex.name = name || ex.name; else cs.push({ name: name || email.split('@')[0], email });
+  tmSel.add(email.toLowerCase()); save(); renderChips(); $('#ctName').value = ''; $('#ctMail').value = ''; $('#ctName').focus();
+};
+$('#ctMail').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#ctAdd').click(); } });
 const teamsMode = () => ST().paUrl ? 'pa' : TG.ok() ? 'graph' : 'manual';
 function openTeams(f, msg) {
-  tmFile = f; $('#tmFile').textContent = f.name; $('#tmTo').value = ST().teamsTo || ''; $('#tmMsg').value = msg;
+  tmFile = f; $('#tmFile').textContent = f.name; $('#tmMsg').value = msg;
+  // 예전 '기본 받는 사람' 메일은 연락처로 옮김
+  const st = ST(); st.contacts = st.contacts || [];
+  (st.teamsTo || '').split(/[,;\s]+/).map(x => x.trim()).filter(x => /@/.test(x)).forEach(m => { if (!st.contacts.some(c => c.email.toLowerCase() === m.toLowerCase())) st.contacts.push({ name: m.split('@')[0], email: m }); });
+  if (st.teamsTo) { st.teamsLast = st.teamsLast || st.teamsTo.split(/[,;\s]+/).filter(Boolean); st.teamsTo = ''; save(); }
+  tmSel = new Set((st.teamsLast || []).map(x => x.toLowerCase()));
+  $('#tmTo').value = ''; renderChips();
   const mode = teamsMode();
   $('#tmHow').innerHTML = mode === 'graph' ? '회사 계정으로 <b>바로 보냅니다</b> — PPT를 내 원드라이브 <b>/제품제안</b> 폴더에 올리고, 받는 사람마다 1:1 팀즈 채팅에 메시지와 <b>파일을 첨부</b>해 보냅니다. 처음 한 번은 팀즈 · 원드라이브 권한을 묻는 창이 뜹니다.'
     : mode === 'pa' ? '파워오토메이트로 원드라이브 <b>/제품제안</b> 폴더에 저장하고, 받는 사람에게 팀즈 채팅으로 링크를 보냅니다.'
@@ -1770,9 +1807,10 @@ function openTeams(f, msg) {
 $('#tmCancel').onclick = () => $('#dlgTeams').close();
 $('#tmDl').onclick = async () => { await downloadBlob(tmFile.blob, tmFile.name); $('#dlgTeams').close(); };
 $('#tmSend').onclick = async () => {
-  const to = $('#tmTo').value.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean); const msg = $('#tmMsg').value;
+  const extra = $('#tmTo').value.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+  const to = [...new Set([...(ST().contacts || []).filter(c => tmSel.has(c.email.toLowerCase())).map(c => c.email), ...extra])]; const msg = $('#tmMsg').value;
   if (!to.length) { toast('받는 사람 메일을 넣으세요'); return; }
-  if (ST().teamsTo !== $('#tmTo').value) { S.settings.teamsTo = $('#tmTo').value; save(); }
+  S.settings.teamsLast = (ST().contacts || []).filter(c => tmSel.has(c.email.toLowerCase())).map(c => c.email); save();
   if (teamsMode() === 'graph') {
     const btn = $('#tmSend'); btn.disabled = true; btn.textContent = '보내는 중…';
     try {
@@ -1808,7 +1846,7 @@ $('#paTest').onclick = async () => {
 };
 
 /* =================== 설정 탭 =================== */
-const setKeys = ['fxUsd', 'fxCny', 'costImport', 'costAgent', 'costDomestic', 'sga', 'op', 'consumerMult', 'method', 'roundUnit', 'footerOrg', 'paUrl', 'teamsTo'];
+const setKeys = ['fxUsd', 'fxCny', 'costImport', 'costAgent', 'costDomestic', 'sga', 'op', 'consumerMult', 'method', 'roundUnit', 'footerOrg', 'paUrl'];
 function parseFx() { return lines(ST().fxTable).map(l => l.split(/[,\t ]+/)).filter(a => /^\d{4}-\d{2}$/.test(a[0])).map(a => ({ m: a[0], usd: num(a[1]), cny: num(a[2]) })); }
 function renderSettings() {
   const s = ST(); setKeys.forEach(k => { const el = $('#' + k); if (el) el.value = s[k]; });
