@@ -163,7 +163,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <div>
-        <h2>판매가 산출 — 대리점가 · 소비자가</h2>
+        <h2>판매가 산출 — 대리점가 · 소비자가 제안</h2>
         <p class="hint" id="priceFlow"></p>
       </div>
       <div class="row">
@@ -1365,7 +1365,7 @@ async function buildPricePpt() {
   const hasImg = rows.some(r => r.img); if (hasImg) await preload(rows.map(r => r.img));
   const per = hasImg ? 8 : 13; const rh = hasImg ? 0.38 : 0.27; let pg = 1;
   for (let i = 0; i < rows.length; i += per) {
-    const s = base(pres, 'PRICE', `대리점가 · 소비자가 (${i + 1}~${Math.min(rows.length, i + per)} / ${rows.length})`, ++pg, foot);
+    const s = base(pres, 'PRICE', `대리점가 · 소비자가 제안 (${i + 1}~${Math.min(rows.length, i + per)} / ${rows.length})`, ++pg, foot);
     const hd = [...(hasImg ? ['사진'] : []), '품목', '품목코드', '수량', '매입원가', 'BEP', '대리점가', '소비자가', '영업이익/개', '영업이익률'].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k < (hasImg ? 3 : 2) ? (hasImg && k === 0 ? 'center' : 'left') : 'right' } }));
     const body = rows.slice(i, i + per).map(r => { const c = priceRowCalc(r); return [r.name, r.code, (num(r.qty) || 0).toLocaleString(), won(c.cost), won(c.bep), { text: won(c.final), options: { bold: true, color: C.teal, align: 'right' } }, { text: won(c.consumer), options: { bold: true, align: 'right' } }, won(c.opAmt), { text: pct(c.opRate), options: { align: 'right', color: c.opRate < 0 ? C.red : C.ink } }].map((v, k) => typeof v === 'object' ? v : { text: v, options: { align: k < 2 ? 'left' : 'right' } }); });
     if (hasImg) body.forEach(b => b.unshift({ text: '' }));
