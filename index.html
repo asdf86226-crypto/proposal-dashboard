@@ -78,6 +78,14 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 td.c{text-align:center}
 tr.sel td{background:var(--teal-soft)}
 td input{width:100%}
+td.imgcell{width:58px;min-width:58px;height:46px;padding:3px;text-align:center;cursor:pointer;position:relative}
+td.imgcell span{display:flex;align-items:center;justify-content:center;width:48px;height:40px;margin:auto;border:1px dashed var(--edge);border-radius:6px;font-size:11px;color:var(--muted)}
+td.imgcell img{display:block;margin:auto;max-width:48px;max-height:40px;border-radius:4px;background:#FFFFFF}
+td.imgcell:focus{outline:2px solid var(--teal);outline-offset:-2px}
+td.imgcell:focus span{border-color:var(--teal);color:var(--teal)}
+td.imgcell .x{position:absolute;top:0;right:0;font-size:13px;padding:0 3px;display:none}
+td.imgcell:hover .x,td.imgcell:focus .x{display:block}
+td.imgcell.over{background:var(--teal-soft)}
 .strong{font-weight:700}.teal{color:var(--teal)}.red{color:var(--red)}.mut{color:var(--muted)}
 .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:700;background:var(--teal-soft);color:var(--teal)}
 .pill.r{background:var(--red-soft);color:var(--red)}.pill.g{background:var(--chip);color:var(--ink-soft)}
@@ -476,13 +484,14 @@ function renderPriceFlow() {
 function renderPrice() {
   renderPriceFlow();
   const rows = S.priceRows;
-  let h = `<thead><tr><th>보고</th><th>품목</th><th>품목코드</th><th>구분</th><th>통화</th><th>단가</th><th>수량</th><th>매입원가/개</th><th>판관비율%</th><th>영업이익률%</th><th>BEP</th><th>대리점가<br><span style="font-weight:400">직접 입력</span></th><th>대리점가<br>(최종 유통가)</th><th>소비자가</th><th>영업이익/개</th><th>영업이익률</th><th>영업이익 합계</th><th></th></tr></thead><tbody>`;
+  let h = `<thead><tr><th>보고</th><th>사진</th><th>품목</th><th>품목코드</th><th>구분</th><th>통화</th><th>단가</th><th>수량</th><th>매입원가/개</th><th>판관비율%</th><th>영업이익률%</th><th>BEP</th><th>대리점가<br><span style="font-weight:400">직접 입력</span></th><th>대리점가<br>(최종 유통가)</th><th>소비자가</th><th>영업이익/개</th><th>영업이익률</th><th>영업이익 합계</th><th></th></tr></thead><tbody>`;
   let sumSales = 0, sumOp = 0, sumQty = 0;
   rows.forEach(r => {
     const c = priceRowCalc(r); const q = num(r.qty) || 0;
     if (isFinite(c.final)) { sumSales += c.final * q; sumOp += c.opAmt * q; sumQty += q; }
     h += `<tr data-id="${r.id}" class="${ladderRow === r.id ? 'sel' : ''}">
       <td class="c"><input type="checkbox" data-k="pick" ${r.pick ? 'checked' : ''}></td>
+      <td class="imgcell" tabindex="0" title="누른 뒤 Ctrl+V로 붙여넣기 · 끌어다 놓기 · 더블클릭으로 파일 고르기">${r.img ? `<img src="${r.img}" alt=""><button class="x" data-imgx title="사진 지우기">×</button>` : '<span>사진</span>'}</td>
       <td><input data-k="name" value="${esc(r.name)}" style="min-width:110px"></td>
       <td><input data-k="code" value="${esc(r.code)}" style="min-width:110px" data-codesearch="1"></td>
       <td><select data-k="div"><option ${r.div === '수입' ? 'selected' : ''}>수입</option><option ${r.div === '국내' ? 'selected' : ''}>국내</option></select></td>
@@ -501,7 +510,7 @@ function renderPrice() {
       <td class="n" data-c="opSum">${won(c.opAmt * q)}</td>
       <td><button class="x" data-del="1" title="삭제">×</button></td></tr>`;
   });
-  h += `</tbody><tfoot><tr><td colspan="6" class="strong" style="padding:8px">합계</td><td class="n strong" data-f="qty">${sumQty.toLocaleString()}</td><td colspan="5"></td><td class="n mut" data-f="sales">매출 ${won(sumSales)}</td><td></td><td></td><td class="n strong" data-f="rate">${pct(sumOp / sumSales)}</td><td class="n strong" data-f="op">${won(sumOp)}</td><td></td></tr></tfoot>`;
+  h += `</tbody><tfoot><tr><td colspan="7" class="strong" style="padding:8px">합계</td><td class="n strong" data-f="qty">${sumQty.toLocaleString()}</td><td colspan="5"></td><td class="n mut" data-f="sales">매출 ${won(sumSales)}</td><td></td><td></td><td class="n strong" data-f="rate">${pct(sumOp / sumSales)}</td><td class="n strong" data-f="op">${won(sumOp)}</td><td></td></tr></tfoot>`;
   $('#priceTbl').innerHTML = h;
   renderLadder();
 }
@@ -535,8 +544,30 @@ function renderPriceKeepFocus() { // 탭으로 넘어간 칸을 기억했다가 
     const key = tr && a.dataset.k ? [tr.dataset.id, a.dataset.k] : null; renderPrice();
     if (key) { const n = $(`#priceTbl tr[data-id="${key[0]}"] [data-k="${key[1]}"]`); if (n) n.focus(); } }, 0);
 }
+/* 품목 사진: 칸을 누르고 Ctrl+V · 끌어다 놓기 · 더블클릭으로 파일 */
+async function setRowImg(id, file) {
+  if (!file || !/^image\//.test(file.type)) { toast('그림 파일이 아닙니다'); return; }
+  const r = S.priceRows.find(x => x.id === id); if (!r) return;
+  r.img = await shrinkImage(file, 480); save(); renderPrice();
+  const c = $(`#priceTbl tr[data-id="${id}"] .imgcell`); if (c) c.focus(); toast('사진을 넣었습니다');
+}
+document.addEventListener('paste', e => {
+  const cell = document.activeElement && document.activeElement.closest && document.activeElement.closest('#priceTbl .imgcell'); if (!cell) return;
+  const f = [...(e.clipboardData || {}).items || []].find(i => i.kind === 'file' && /^image\//.test(i.type));
+  if (!f) { toast('클립보드에 사진이 없습니다. 사진을 복사한 뒤 다시 Ctrl+V 하세요'); return; }
+  e.preventDefault(); setRowImg(cell.closest('tr').dataset.id, f.getAsFile());
+});
+$('#priceTbl').addEventListener('dblclick', e => {
+  const cell = e.target.closest('.imgcell'); if (!cell) return;
+  const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/*';
+  fi.onchange = () => setRowImg(cell.closest('tr').dataset.id, fi.files[0]); fi.click();
+});
+$('#priceTbl').addEventListener('dragover', e => { const c = e.target.closest('.imgcell'); if (c) { e.preventDefault(); c.classList.add('over'); } });
+$('#priceTbl').addEventListener('dragleave', e => { const c = e.target.closest('.imgcell'); if (c) c.classList.remove('over'); });
+$('#priceTbl').addEventListener('drop', e => { const c = e.target.closest('.imgcell'); if (!c) return; e.preventDefault(); c.classList.remove('over'); setRowImg(c.closest('tr').dataset.id, e.dataTransfer.files[0]); });
 $('#priceTbl').addEventListener('click', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return;
+  if (e.target.matches('[data-imgx]')) { const r = S.priceRows.find(x => x.id === tr.dataset.id); r.img = ''; save(); renderPrice(); return; }
   if (e.target.dataset.del) { S.priceRows = S.priceRows.filter(x => x.id !== tr.dataset.id); save(); renderPrice(); return; }
   if (ladderRow !== tr.dataset.id) { ladderRow = tr.dataset.id; $$('#priceTbl tr').forEach(x => x.classList.toggle('sel', x === tr)); renderLadder(); }
 });
@@ -1331,12 +1362,16 @@ async function buildPricePpt() {
   const pres = newPres(title); if (!pres) return null; const st = ST();
   const foot = `${st.footerOrg} | ${title}`;
   cover(pres, { kicker: 'PRICE REPORT', title: '최종 유통가 보고', subtitle: `${rows.length}개 품목 · 대리점가(제안 최저가) · 소비자가\n${st.fxMonth} 환율 USD ${num(st.fxUsd).toFixed(2)} · CNY ${num(st.fxCny).toFixed(2)}`, footer: `${st.footerOrg.split('→')[0].trim()}  |  ${today()}` });
-  const per = 13; let pg = 1;
+  const hasImg = rows.some(r => r.img); if (hasImg) await preload(rows.map(r => r.img));
+  const per = hasImg ? 8 : 13; const rh = hasImg ? 0.38 : 0.27; let pg = 1;
   for (let i = 0; i < rows.length; i += per) {
     const s = base(pres, 'PRICE', `대리점가 · 소비자가 (${i + 1}~${Math.min(rows.length, i + per)} / ${rows.length})`, ++pg, foot);
-    const hd = ['품목', '품목코드', '수량', '매입원가', 'BEP', '대리점가', '소비자가', '영업이익/개', '영업이익률'].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k < 2 ? 'left' : 'right' } }));
+    const hd = [...(hasImg ? ['사진'] : []), '품목', '품목코드', '수량', '매입원가', 'BEP', '대리점가', '소비자가', '영업이익/개', '영업이익률'].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k < (hasImg ? 3 : 2) ? (hasImg && k === 0 ? 'center' : 'left') : 'right' } }));
     const body = rows.slice(i, i + per).map(r => { const c = priceRowCalc(r); return [r.name, r.code, (num(r.qty) || 0).toLocaleString(), won(c.cost), won(c.bep), { text: won(c.final), options: { bold: true, color: C.teal, align: 'right' } }, { text: won(c.consumer), options: { bold: true, align: 'right' } }, won(c.opAmt), { text: pct(c.opRate), options: { align: 'right', color: c.opRate < 0 ? C.red : C.ink } }].map((v, k) => typeof v === 'object' ? v : { text: v, options: { align: k < 2 ? 'left' : 'right' } }); });
-    s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW: [1.5, 1.4, 0.65, 0.95, 0.85, 1.0, 1.0, 0.85, 0.8], rowH: 0.27, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+    if (hasImg) body.forEach(b => b.unshift({ text: '' }));
+    const colW = hasImg ? [0.55, 1.3, 1.25, 0.6, 0.9, 0.8, 0.95, 0.95, 0.85, 0.85] : [1.5, 1.4, 0.65, 0.95, 0.85, 1.0, 1.0, 0.85, 0.8];
+    s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW, rowH: rh, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+    if (hasImg) rows.slice(i, i + per).forEach((r, j) => { if (r.img) addImg(s, r.img, 0.53, 1.2 + rh * (j + 1) + 0.03, 0.49, rh - 0.06); });
     T(s, `매입원가 = 외화 단가 × 환율 × (1 + 부대비용) · 대리점가 = 매입원가 ÷ (1 − 판관비 ${st.sga}% − 영업이익률) ${st.roundUnit}원 올림 · 소비자가 = 대리점가 × ${st.consumerMult} · 부가세 별도`, 0.5, 4.95, 9, 0.2, { fontSize: 7, color: C.soft });
   }
   // 이익률별 단가표
