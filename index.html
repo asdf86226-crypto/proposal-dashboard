@@ -396,9 +396,8 @@ function defaultSettings() {
 }
 function samplePriceRows() { return null; }
 function newSub() {
-  return { id: uid(), title: '새 부품 대체 검토', oldCode: '', oldName: '', oldPrice: '', oldSupplier: '', oldInto: '',
-    newSupplier: '', newDiv: '국내', newCur: 'KRW', newPrice: '', mold: '', other: '',
-    qtyMode: 'bom', qtyManual: '', sellPrice: '', note: '', pick: false };
+  const p = newPart();
+  return { id: uid(), title: '새 부품 대체 검토', items: [p], curPart: p.id, other: '', note: '', pick: false };
 }
 function sampleSub() { return null; }
 function emptyProposal() {
@@ -816,24 +815,55 @@ function usageSeries(code) {
   return { months, own: me.own, total: me.total, own12: w.reduce((s, i) => s + me.own[i], 0), total12: w.reduce((s, i) => s + me.total[i], 0), parents: parentsContrib };
 }
 
-/* =================== 부품 대체 탭 =================== */
-function subCalc(s) {
-  const it = itemOf(s.oldCode); const us = it || (D && D.parents[s.oldCode]) ? usageSeries(s.oldCode) : null;
-  const oldP = isFinite(num(s.oldPrice)) ? num(s.oldPrice) : (it && it.lastBuy ? it.lastBuy.price : NaN);
-  const newP = landedCost(s.newDiv, s.newCur, s.newPrice);
-  const invest = (num(s.mold) || 0) + (num(s.other) || 0);
-  let qty = NaN, qtySrc = '';
-  if (s.qtyMode === 'manual') { qty = num(s.qtyManual); qtySrc = '직접 입력'; }
-  else if (s.qtyMode === 'buy') { qty = it && it.buy12 ? it.buy12.qty : NaN; qtySrc = '최근 12개월 구매량'; }
-  else { qty = us ? us.total12 : NaN; qtySrc = '최근 12개월 판매 + BOM 소요량'; }
-  const sell = isFinite(num(s.sellPrice)) ? num(s.sellPrice) : (it && it.lastSell ? it.lastSell.price : NaN);
-  const save1 = oldP - newP; const annual = save1 * qty; const monthly = qty / 12;
-  const payQty = save1 > 0 ? invest / save1 : NaN; const payMon = save1 > 0 && monthly > 0 ? payQty / monthly : NaN;
+/* =================== 부품 대체 탭 ===================
+ * 검토 하나 = 여러 품목(부품). 품목마다 기존 · 신규 단가, 금형비, 연간 사용량을 넣고
+ * 검토 전체로 총 투자(금형비 합 + 공통 투자) · 연간 절감 · 회수 기간 · 가중 이익률을 본다. */
+function newPart() {
+  return { id: uid(), oldCode: '', oldName: '', oldPrice: '', oldSupplier: '', oldInto: '',
+    newSupplier: '', newDiv: '국내', newCur: 'KRW', newPrice: '', mold: '', qtyMode: 'bom', qtyManual: '', sellPrice: '' };
+}
+function normSub(s) { // 예전(품목 1개짜리) 검토를 새 구조로 옮김
+  if (!s.items) {
+    const p = newPart();
+    for (const k of Object.keys(p)) if (k !== 'id' && s[k] !== undefined) { p[k] = s[k]; delete s[k]; }
+    s.items = [p];
+  }
+  if (!s.items.length) s.items.push(newPart());
+  if (!s.items.some(p => p.id === s.curPart)) s.curPart = s.items[0].id;
+  return s;
+}
+const curS = () => S.subs.find(x => x.id === S.curSub);
+function partCalc(p) {
+  const it = itemOf(p.oldCode); const us = it || (D && D.parents[p.oldCode]) ? usageSeries(p.oldCode) : null;
+  const oldP = isFinite(num(p.oldPrice)) ? num(p.oldPrice) : (it && it.lastBuy ? it.lastBuy.price : NaN);
+  const newP = landedCost(p.newDiv, p.newCur, p.newPrice);
+  const autoQty = p.qtyMode === 'buy' ? (it && it.buy12 ? it.buy12.qty : NaN) : (us ? us.total12 : NaN);
+  const qty = p.qtyMode === 'manual' ? num(p.qtyManual) : autoQty;
+  const qtySrc = p.qtyMode === 'manual' ? '직접 입력' : p.qtyMode === 'buy' ? '최근 12개월 구매량' : '최근 12개월 판매 + BOM 소요량';
+  const sell = isFinite(num(p.sellPrice)) ? num(p.sellPrice) : (it && it.lastSell ? it.lastSell.price : NaN);
+  const mold = num(p.mold) || 0;
+  const save1 = oldP - newP; const annual = save1 * qty;
+  const payQty = save1 > 0 ? mold / save1 : NaN; const payMon = save1 > 0 && qty > 0 ? mold / (annual / 12) : NaN;
   const mBefore = isFinite(sell) ? (sell - oldP) / sell : NaN, mAfter = isFinite(sell) ? (sell - newP) / sell : NaN;
-  return { it, us, oldP, newP, invest, qty, qtySrc, sell, save1, annual, payQty, payMon, mBefore, mAfter, net3: annual * 3 - invest, saveRate: save1 / oldP };
+  return { it, us, oldP, newP, qty, autoQty, qtySrc, sell, mold, save1, annual, payQty, payMon, mBefore, mAfter, saveRate: save1 / oldP };
+}
+function subCalc(s) {
+  normSub(s);
+  const parts = s.items.map(partCalc);
+  const fin = v => isFinite(v) ? v : 0;
+  const other = num(s.other) || 0;
+  const invest = parts.reduce((a, r) => a + r.mold, 0) + other;
+  const annual = parts.reduce((a, r) => a + fin(r.annual), 0);
+  const payMon = annual > 0 ? invest / (annual / 12) : NaN;
+  const wm = parts.filter(r => isFinite(r.sell) && isFinite(r.qty) && r.qty > 0 && isFinite(r.oldP) && isFinite(r.newP));
+  const sales = wm.reduce((a, r) => a + r.sell * r.qty, 0);
+  const mBefore = sales ? wm.reduce((a, r) => a + (r.sell - r.oldP) * r.qty, 0) / sales : NaN;
+  const mAfter = sales ? wm.reduce((a, r) => a + (r.sell - r.newP) * r.qty, 0) / sales : NaN;
+  const buyBefore = parts.reduce((a, r) => a + fin(r.oldP * r.qty), 0);
+  return { parts, other, invest, annual, payMon, mBefore, mAfter, net3: annual * 3 - invest, saveRate: buyBefore ? annual / buyBefore : NaN, n: parts.length };
 }
 function renderSubList() {
-  $('#subList').innerHTML = S.subs.map(s => `<div class="li ${s.id === S.curSub ? 'on' : ''}" data-id="${s.id}"><input type="checkbox" data-pick ${s.pick ? 'checked' : ''}><span class="t">${esc(s.title || s.oldName || '제목 없음')}</span><button class="x" data-del title="삭제">×</button></div>`).join('') || '<p class="hint">검토가 없습니다.</p>';
+  $('#subList').innerHTML = S.subs.map(s => `<div class="li ${s.id === S.curSub ? 'on' : ''}" data-id="${s.id}"><input type="checkbox" data-pick ${s.pick ? 'checked' : ''}><span class="t">${esc(s.title || '제목 없음')}</span><span class="pill g">${(s.items || [1]).length}</span><button class="x" data-del title="삭제">×</button></div>`).join('') || '<p class="hint">검토가 없습니다.</p>';
 }
 $('#subList').addEventListener('click', e => {
   const li = e.target.closest('.li'); if (!li) return; const s = S.subs.find(x => x.id === li.dataset.id);
@@ -842,92 +872,138 @@ $('#subList').addEventListener('click', e => {
   S.curSub = s.id; save(); renderSub();
 });
 $('#subNew').onclick = () => { const s = newSub(); S.subs.unshift(s); S.curSub = s.id; save(); renderSub(); };
+
+function partRow(p, i, sel) {
+  const r = partCalc(p);
+  const inp = (k, attrs = '', w = 90) => `<input data-pk="${k}" value="${esc(p[k])}" ${attrs} style="width:${w}px">`;
+  const sl = (k, opts) => `<select data-pk="${k}">${opts.map(([v, t]) => `<option value="${v}" ${p[k] === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+  const manual = p.qtyMode === 'manual';
+  return `<tr data-part="${p.id}" class="${sel ? 'sel' : ''}">
+    <td class="c mut">${i + 1}</td>
+    <td>${inp('oldCode', 'data-codesearch="1"', 110)}</td>
+    <td>${inp('oldName', '', 150)}</td>
+    <td>${sl('oldInto', [['', '–'], ['태성정밀', '태성정밀'], ['플로우텍', '플로우텍']])}</td>
+    <td>${inp('oldSupplier', '', 120)}</td>
+    <td>${inp('oldPrice', 'type="number" step="any"', 86)}</td>
+    <td class="c mut">→</td>
+    <td>${inp('newSupplier', '', 120)}</td>
+    <td>${sl('newDiv', [['국내', '국내'], ['수입', '수입']])}</td>
+    <td>${sl('newCur', [['KRW', 'KRW'], ['USD', 'USD'], ['CNY', 'CNY']])}</td>
+    <td>${inp('newPrice', 'type="number" step="any"', 86)}</td>
+    <td class="n" data-pc="newP">${won(r.newP)}</td>
+    <td class="n strong" data-pc="save1">${won(r.save1)}</td>
+    <td>${inp('mold', 'type="number"', 100)}</td>
+    <td>${sl('qtyMode', [['bom', '판매+BOM'], ['buy', '구매량'], ['manual', '직접']])}</td>
+    <td><input data-pk="qtyManual" type="number" value="${manual ? esc(p.qtyManual) : (isFinite(r.autoQty) ? Math.round(r.autoQty) : '')}" ${manual ? '' : 'readonly tabindex="-1"'} style="width:86px;${manual ? '' : 'background:var(--chip);color:var(--ink)'}"></td>
+    <td>${inp('sellPrice', 'type="number" step="any"', 86)}</td>
+    <td class="n" data-pc="annual">${won(r.annual)}</td>
+    <td class="n" data-pc="pay">${isFinite(r.payMon) ? r.payMon.toFixed(1) + '개월' : (r.mold && !(r.save1 > 0) ? '<span class="red">불가</span>' : '–')}</td>
+    <td><button class="x" data-pdel title="품목 빼기">×</button></td></tr>`;
+}
 function renderSub() {
   renderSubList();
-  const s = S.subs.find(x => x.id === S.curSub);
+  const s = curS();
   if (!s) { $('#subEdit').innerHTML = '<div class="card"><p class="hint">왼쪽에서 + 새 검토를 누르세요.</p></div>'; return; }
-  const f = (k, label, attrs = '', w = '') => `<div class="fld" ${w ? `style="${w}"` : ''}><label>${label}</label><input data-k="${k}" value="${esc(s[k])}" ${attrs}></div>`;
+  normSub(s);
+  const f = (k, label, attrs = '', w = '') => `<div class="fld" ${w ? `style="${w}"` : ''}><label>${label}</label><input data-k="${k}" value="${esc(s[k] ?? '')}" ${attrs}></div>`;
   $('#subEdit').innerHTML = `
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2>부품 대체 검토</h2><span class="status" id="subData"></span></div>
-    <div class="row" style="margin-top:8px">${f('title', '검토 제목', '', 'flex:1;min-width:280px')}</div>
-    <div class="grid2" style="margin-top:12px">
-      <div class="slot"><b>기존 부품</b>
-        <div class="row">${f('oldCode', '품목코드', 'data-codesearch="1"', 'width:150px')}${f('oldName', '품명', '', 'flex:1')}</div>
-        <div class="row">${f('oldPrice', '현재 매입단가 (원)', 'type="number" step="any"', 'width:150px')}${f('oldSupplier', '현재 공급처', '', 'flex:1')}
-          <div class="fld"><label>입고 회사</label><select data-k="oldInto">${['', '태성정밀', '플로우텍'].map(x => `<option value="${x}" ${s.oldInto === x ? 'selected' : ''}>${x || '–'}</option>`).join('')}</select></div></div>
-        <div id="subOldInfo" class="status"></div>
-      </div>
-      <div class="slot"><b>신규 (대체) 부품</b>
-        <div class="row">${f('newSupplier', '신규 공급처', '', 'flex:1')}
-          <div class="fld"><label>구분</label><select data-k="newDiv"><option ${s.newDiv === '수입' ? 'selected' : ''}>수입</option><option ${s.newDiv === '국내' ? 'selected' : ''}>국내</option></select></div>
-          <div class="fld"><label>통화</label><select data-k="newCur">${['KRW', 'USD', 'CNY'].map(x => `<option ${s.newCur === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
-          ${f('newPrice', '견적 단가', 'type="number" step="any"', 'width:110px')}</div>
-        <div class="row">${f('mold', '금형비 (원)', 'type="number"', 'width:150px')}${f('other', '기타 투자 (샘플·인증·지그, 원)', 'type="number"', 'width:200px')}</div>
-        <div id="subNewInfo" class="status"></div>
-      </div>
-    </div>
-    <div class="row" style="margin-top:12px">
-      <div class="fld"><label>연간 사용량 기준</label><select data-k="qtyMode">
-        <option value="bom" ${s.qtyMode === 'bom' ? 'selected' : ''}>판매 + BOM 소요량 (12개월)</option>
-        <option value="buy" ${s.qtyMode === 'buy' ? 'selected' : ''}>구매량 (12개월)</option>
-        <option value="manual" ${s.qtyMode === 'manual' ? 'selected' : ''}>직접 입력</option></select></div>
-      ${f('qtyManual', '연간 사용량 (직접 입력)', 'type="number"', 'width:170px')}
-      ${f('sellPrice', '판매단가 (이익률 계산용, 원)', 'type="number" step="any"', 'width:200px')}
-    </div>
-    <div class="fld" style="margin-top:10px"><label>메모 (PPT에 들어갑니다)</label><textarea data-k="note">${esc(s.note)}</textarea></div>
+    <div class="row" style="margin-top:8px">${f('title', '검토 제목', '', 'flex:1;min-width:280px')}${f('other', '공통 투자 (샘플 · 인증 · 지그 등, 원)', 'type="number"', 'width:240px')}</div>
+    <h3>대체 품목 <span class="pill g">${s.items.length}</span></h3>
+    <p class="hint">품목코드를 넣으면 품명 · 입고 회사 · 공급처 · 현재 매입단가 · 판매단가 · 연간 사용량을 채웁니다. 금형비는 품목마다, 함께 드는 비용은 위 '공통 투자'에 넣으세요. 줄을 누르면 아래 '사용량 근거'가 그 품목으로 바뀝니다.</p>
+    <div class="tbl-wrap"><table id="partTbl"><thead><tr><th>#</th><th>품목코드</th><th>품명</th><th>입고 회사</th><th>현재 공급처</th><th>현재 단가</th><th></th><th>신규 공급처</th><th>구분</th><th>통화</th><th>견적 단가</th><th>신규 입고원가</th><th>개당 절감</th><th>금형비</th><th>사용량 기준</th><th>연간 사용량</th><th>판매단가</th><th>연간 절감</th><th>회수 기간</th><th></th></tr></thead>
+      <tbody>${s.items.map((p, i) => partRow(p, i, p.id === s.curPart)).join('')}</tbody></table></div>
+    <div class="row" style="margin-top:8px"><button class="b" id="partAdd">+ 품목 추가</button><span class="status" id="partInfo"></span></div>
+    <div class="fld" style="margin-top:12px"><label>메모 (PPT에 들어갑니다)</label><textarea data-k="note">${esc(s.note)}</textarea></div>
   </div>
-  <div class="card"><h2>분석 결과</h2><div id="subRes"></div></div>
-  <div class="card" id="subUsageCard"><h2>사용량 근거</h2><div id="subUsage"></div></div>`;
+  <div class="card"><h2>분석 결과 ${s.items.length > 1 ? `<span class="pill">${s.items.length}개 품목 합계</span>` : ''}</h2><div id="subRes"></div></div>
+  <div class="card" id="subUsageCard"><h2>사용량 근거 — <span id="usageName"></span></h2><div id="subUsage"></div></div>`;
   renderSubResult();
 }
+const partOf = el => { const tr = el.closest('tr[data-part]'); const s = curS(); return tr && s ? s.items.find(p => p.id === tr.dataset.part) : null; };
 $('#subEdit').addEventListener('input', e => {
-  const k = e.target.dataset.k; if (!k) return; const s = S.subs.find(x => x.id === S.curSub);
-  s[k] = e.target.value; save();
-  if (k === 'title') renderSubList();
-  if (k !== 'oldCode') renderSubResult();
+  const s = curS(); if (!s) return; const t = e.target;
+  if (t.dataset.k) { s[t.dataset.k] = t.value; save(); if (t.dataset.k === 'title') renderSubList(); renderSubResult(); return; }
+  const p = t.dataset.pk && partOf(t); if (!p) return;
+  if (t.readOnly) return;
+  p[t.dataset.pk] = t.value; save();
+  if (t.dataset.pk !== 'oldCode') updatePartRow(p);
 });
 $('#subEdit').addEventListener('change', e => {
-  const k = e.target.dataset.k; if (k !== 'oldCode') return; const s = S.subs.find(x => x.id === S.curSub);
-  const it = itemOf(s.oldCode);
-  if (it) { s.oldName = it.name; if (it.lastBuy) { s.oldPrice = Math.round(it.lastBuy.price * 100) / 100; s.oldSupplier = it.lastBuy.sup; s.oldInto = it.lastBuy.co || ''; } if (it.lastSell) s.sellPrice = it.lastSell.price; if (s.qtyMode === 'manual') s.qtyMode = 'bom'; if (!s.title || s.title === '새 부품 대체 검토') s.title = `${it.name} 대체 검토`; }
-  save(); renderSub();
+  const t = e.target; const p = t.dataset.pk && partOf(t); if (!p) return;
+  if (t.dataset.pk === 'oldCode') { fillPart(p); return subRerenderKeepFocus(); }
+  if (t.tagName === 'SELECT') subRerenderKeepFocus();
 });
+$('#subEdit').addEventListener('click', e => {
+  const s = curS(); if (!s) return;
+  if (e.target.id === 'partAdd') { const p = newPart(); s.items.push(p); s.curPart = p.id; save(); renderSub(); const n = $(`#partTbl tr[data-part="${p.id}"] [data-pk="oldCode"]`); if (n) n.focus(); return; }
+  if (e.target.matches('[data-pdel]')) { const p = partOf(e.target); if (s.items.length === 1) { Object.assign(p, newPart(), { id: p.id }); } else s.items = s.items.filter(x => x !== p); save(); renderSub(); return; }
+  const p = partOf(e.target); if (p && s.curPart !== p.id) { s.curPart = p.id; save(); $$('#partTbl tr[data-part]').forEach(tr => tr.classList.toggle('sel', tr.dataset.part === p.id)); renderUsage(); }
+});
+function fillPart(p) {
+  const s = curS(); const it = itemOf(p.oldCode); if (!it) return;
+  p.oldName = it.name;
+  if (it.lastBuy) { p.oldPrice = Math.round(it.lastBuy.price * 100) / 100; p.oldSupplier = it.lastBuy.sup; p.oldInto = it.lastBuy.co || ''; }
+  if (it.lastSell) p.sellPrice = it.lastSell.price;
+  if (p.qtyMode === 'manual' && !p.qtyManual) p.qtyMode = 'bom';
+  if (!s.title || s.title === '새 부품 대체 검토') s.title = s.items.length > 1 ? `${it.name} 외 대체 검토` : `${it.name} 대체 검토`;
+  s.curPart = p.id; save();
+}
+function subRerenderKeepFocus() {
+  setTimeout(() => {
+    const a = document.activeElement; const tr = a && a.closest && a.closest('#partTbl tr[data-part]');
+    const key = tr && a.dataset.pk ? [tr.dataset.part, a.dataset.pk] : null; const y = scrollY;
+    renderSub(); scrollTo(0, y);
+    if (key) { const n = $(`#partTbl tr[data-part="${key[0]}"] [data-pk="${key[1]}"]`); if (n) n.focus({ preventScroll: true }); }
+  }, 0);
+}
+function updatePartRow(p) { // 입력 칸은 그대로 두고 계산 칸만 바꿈
+  const tr = $(`#partTbl tr[data-part="${p.id}"]`); if (!tr) return; const r = partCalc(p);
+  const set = (k, html) => { const td = $(`[data-pc="${k}"]`, tr); if (td) td.innerHTML = html; };
+  set('newP', won(r.newP)); set('save1', won(r.save1)); set('annual', won(r.annual));
+  set('pay', isFinite(r.payMon) ? r.payMon.toFixed(1) + '개월' : (r.mold && !(r.save1 > 0) ? '<span class="red">불가</span>' : '–'));
+  renderSubResult();
+}
 function renderSubResult() {
-  const s = S.subs.find(x => x.id === S.curSub); if (!s || !$('#subRes')) return;
-  const r = subCalc(s);
-  $('#subData').innerHTML = D ? `MMS 기준: 구매 ${D.meta.buyAsOf || '–'} · 판매 ${D.meta.sellAsOf || '–'}` : '<span class="red">MMS 데이터 미연결 — 데이터 · 설정 탭</span>';
-  $('#subOldInfo').innerHTML = r.it ? (r.it.lastBuy ? `최근 매입 <b>${won(r.it.lastBuy.price)}원</b> (${r.it.lastBuy.date} · ${esc(r.it.lastBuy.sup)}${r.it.lastBuy.co ? ' → ' + esc(r.it.lastBuy.co) + ' 입고' : ''} · ${r.it.lastBuy.qty.toLocaleString()}개)${r.it.buy12 && r.it.buy12.qty ? ` · 12개월 평균 ${won(r.it.buy12.amt / r.it.buy12.qty)}원` : ''}` : '구매 이력 없음') : (s.oldCode && D ? '<span class="red">MMS에 없는 품목코드입니다 (717062 ≠ 717062.0 주의)</span>' : '');
-  $('#subNewInfo').innerHTML = isFinite(r.newP) ? `입고원가 <b>${won(r.newP)}원</b>${s.newCur !== 'KRW' ? ` (= ${s.newPrice} ${s.newCur} × ${fxOf(s.newCur).toFixed(2)} × ${(1 + (s.newDiv === '수입' ? num(ST().costImport) : num(ST().costDomestic)) / 100).toFixed(2)})` : ''}` : '';
-  const ok = r.save1 > 0;
+  const s = curS(); if (!s || !$('#subRes')) return;
+  const R = subCalc(s);
+  $('#subData').innerHTML = D ? `MMS 기준: 구매 ${D.meta.buyAsOf || '–'} · 판매 ${D.meta.sellAsOf || '–'}` : '<span class="red">MMS 데이터 미연결 — 위쪽 줄에서 쉐어포인트 연결</span>';
+  const cp = s.items.find(p => p.id === s.curPart); const cr = cp ? partCalc(cp) : null;
+  $('#partInfo').innerHTML = cr && cr.it ? `<b>${esc(cp.oldCode)}</b> ` + (cr.it.lastBuy ? `최근 매입 <b>${won(cr.it.lastBuy.price)}원</b> (${cr.it.lastBuy.date} · ${esc(cr.it.lastBuy.sup)}${cr.it.lastBuy.co ? ' → ' + esc(cr.it.lastBuy.co) + ' 입고' : ''} · ${cr.it.lastBuy.qty.toLocaleString()}개)${cr.it.buy12 && cr.it.buy12.qty ? ` · 12개월 평균 ${won(cr.it.buy12.amt / cr.it.buy12.qty)}원` : ''}` : '구매 이력 없음')
+    : (cp && cp.oldCode && D ? `<span class="red">${esc(cp.oldCode)}: MMS에 없는 품목코드입니다 (717062 ≠ 717062.0 주의)</span>` : '');
+  const ok = R.annual > 0; const one = R.n === 1 ? R.parts[0] : null;
   $('#subRes').innerHTML = `
    <div class="kpis">
-    <div class="kpi ${ok ? 'hl' : 'bad'}"><div class="l">개당 절감액</div><div class="v">${won(r.save1)}원</div><div class="s">${won(r.oldP)} → ${won(r.newP)}원 (${pct(r.saveRate)})</div></div>
-    <div class="kpi"><div class="l">연간 사용량</div><div class="v">${isFinite(r.qty) ? Math.round(r.qty).toLocaleString() : '–'}개</div><div class="s">${r.qtySrc}</div></div>
-    <div class="kpi"><div class="l">금형비 + 투자</div><div class="v">${won(r.invest)}원</div><div class="s">금형 ${won(num(s.mold) || 0)} · 기타 ${won(num(s.other) || 0)}</div></div>
-    <div class="kpi ${ok ? 'hl' : 'bad'}"><div class="l">투자 회수 수량</div><div class="v">${ok ? Math.ceil(r.payQty).toLocaleString() + '개' : '회수 불가'}</div><div class="s">${ok ? '이만큼 사면 금형비가 회수됩니다' : '신규 단가가 더 비쌉니다'}</div></div>
-    <div class="kpi ${ok ? 'hl' : ''}"><div class="l">회수 기간</div><div class="v">${isFinite(r.payMon) ? r.payMon.toFixed(1) + '개월' : '–'}</div><div class="s">월 ${isFinite(r.qty) ? Math.round(r.qty / 12).toLocaleString() : '–'}개 사용 기준</div></div>
-    <div class="kpi"><div class="l">연간 절감액</div><div class="v">${won(r.annual)}원</div><div class="s">3년 순이익 ${won(r.net3)}원</div></div>
-    <div class="kpi"><div class="l">이익률 (판매단가 ${won(r.sell)}원)</div><div class="v">${pct(r.mBefore)} → <span class="teal">${pct(r.mAfter)}</span></div><div class="s">${isFinite(r.mAfter) ? '+' + ((r.mAfter - r.mBefore) * 100).toFixed(1) + '%p 개선' : '판매단가를 넣으세요'}</div></div>
+    ${one ? `<div class="kpi ${one.save1 > 0 ? 'hl' : 'bad'}"><div class="l">개당 절감액</div><div class="v">${won(one.save1)}원</div><div class="s">${won(one.oldP)} → ${won(one.newP)}원 (${pct(one.saveRate)})</div></div>
+    <div class="kpi"><div class="l">연간 사용량</div><div class="v">${isFinite(one.qty) ? Math.round(one.qty).toLocaleString() : '–'}개</div><div class="s">${one.qtySrc}</div></div>`
+    : `<div class="kpi ${ok ? 'hl' : 'bad'}"><div class="l">매입비 절감률</div><div class="v">${pct(R.saveRate)}</div><div class="s">${R.n}개 품목 · 연간 매입액 대비</div></div>`}
+    <div class="kpi"><div class="l">총 투자</div><div class="v">${won(R.invest)}원</div><div class="s">금형 ${won(R.invest - R.other)} · 공통 ${won(R.other)}</div></div>
+    ${one ? `<div class="kpi ${one.save1 > 0 ? 'hl' : 'bad'}"><div class="l">투자 회수 수량</div><div class="v">${one.save1 > 0 ? Math.ceil(R.invest / one.save1).toLocaleString() + '개' : '회수 불가'}</div><div class="s">${one.save1 > 0 ? '이만큼 사면 투자비가 회수됩니다' : '신규 단가가 더 비쌉니다'}</div></div>` : ''}
+    <div class="kpi ${ok ? 'hl' : 'bad'}"><div class="l">회수 기간</div><div class="v">${isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월' : (R.invest ? '회수 불가' : '–')}</div><div class="s">${R.n > 1 ? '전체 품목 절감액 합계 기준' : `월 ${one && isFinite(one.qty) ? Math.round(one.qty / 12).toLocaleString() : '–'}개 사용 기준`}</div></div>
+    <div class="kpi"><div class="l">연간 절감액</div><div class="v">${won(R.annual)}원</div><div class="s">3년 순이익 ${won(R.net3)}원</div></div>
+    <div class="kpi"><div class="l">이익률${R.n > 1 ? ' (판매액 가중)' : ` (판매단가 ${won(one.sell)}원)`}</div><div class="v">${pct(R.mBefore)} → <span class="teal">${pct(R.mAfter)}</span></div><div class="s">${isFinite(R.mAfter) ? '+' + ((R.mAfter - R.mBefore) * 100).toFixed(1) + '%p 개선' : '판매단가를 넣으세요'}</div></div>
    </div>
-   <h3>누적 손익 (36개월)</h3>${paybackSvg(r)}`;
-  renderUsage(r);
+   <h3>누적 손익 (36개월)</h3>${paybackSvg(R)}`;
+  renderUsage();
 }
-function paybackSvg(r) {
-  if (!(isFinite(r.save1) && isFinite(r.qty) && r.qty > 0)) return '<p class="hint">단가 · 사용량을 넣으면 그래프가 나옵니다.</p>';
-  const W = 860, H = 200, L = 70, B = 24, T = 10, n = 36; const mon = r.save1 * r.qty / 12;
-  const vals = Array.from({ length: n }, (_, i) => mon * (i + 1) - r.invest);
+function paybackSvg(R) {
+  if (!(R.annual > 0 || R.annual < 0)) return '<p class="hint">단가 · 사용량을 넣으면 그래프가 나옵니다.</p>';
+  const W = 860, H = 200, L = 70, B = 24, T = 10, n = 36; const mon = R.annual / 12;
+  const vals = Array.from({ length: n }, (_, i) => mon * (i + 1) - R.invest);
   const mx = Math.max(0, ...vals), mn = Math.min(0, ...vals); const y = v => T + (H - T - B) * (mx - v) / ((mx - mn) || 1);
   const bw = (W - L - 10) / n;
   let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="누적 손익 그래프">`;
   [mx, 0, mn].filter((v, i, a) => a.indexOf(v) === i).forEach(v => g += `<line x1="${L}" x2="${W - 10}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(${v === 0 ? '--ink' : '--line'})" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" style="fill:var(--ink-soft)">${won(v / 1e4)}만</text>`);
   vals.forEach((v, i) => { const x = L + i * bw + 1; g += `<rect x="${x}" y="${Math.min(y(v), y(0))}" width="${bw - 2}" height="${Math.max(1, Math.abs(y(v) - y(0)))}" fill="${v >= 0 ? '#0E9AA7' : '#C8553D'}" rx="1"><title>${i + 1}개월: ${won(v)}원</title></rect>`; if ((i + 1) % 6 === 0) g += `<text x="${x + bw / 2}" y="${H - 6}" font-size="11" text-anchor="middle" style="fill:var(--ink-soft)">${i + 1}개월</text>`; });
-  if (isFinite(r.payMon) && r.payMon <= n) { const x = L + r.payMon * bw; g += `<line x1="${x}" x2="${x}" y1="${T}" y2="${H - B}" style="stroke:var(--ink)" stroke-dasharray="4 3"/><text x="${x + 4}" y="${T + 12}" font-size="11.5" font-weight="700" style="fill:var(--ink)">회수 ${r.payMon.toFixed(1)}개월</text>`; }
+  if (isFinite(R.payMon) && R.payMon <= n) { const x = L + R.payMon * bw; g += `<line x1="${x}" x2="${x}" y1="${T}" y2="${H - B}" style="stroke:var(--ink)" stroke-dasharray="4 3"/><text x="${x + 4}" y="${T + 12}" font-size="11.5" font-weight="700" style="fill:var(--ink)">회수 ${R.payMon.toFixed(1)}개월</text>`; }
   return g + '</svg>';
 }
-function renderUsage(r) {
-  const el = $('#subUsage'); if (!el) return;
-  if (!r.us) { el.innerHTML = '<p class="hint">MMS 데이터를 연결하고 품목코드를 넣으면, 이 부품의 월별 사용량과 사용하는 제품 목록이 나옵니다.</p>'; return; }
+function renderUsage() {
+  const el = $('#subUsage'); if (!el) return; const s = curS(); const p = s && s.items.find(x => x.id === s.curPart);
+  $('#usageName').textContent = p ? `${p.oldCode || '품목코드 없음'} ${p.oldName || ''}` : '';
+  const r = p ? partCalc(p) : null;
+  if (!r || !r.us) { el.innerHTML = '<p class="hint">MMS 데이터가 연결된 상태에서 품목코드를 넣으면, 이 부품의 월별 사용량과 사용하는 제품 목록이 나옵니다.</p>'; return; }
   const u = r.us; const W = 860, H = 150, L = 50, B = 22, T = 8; const mx = Math.max(1, ...u.total);
   const bw = (W - L - 10) / u.months.length;
   let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 사용량"><line x1="${L}" x2="${W - 10}" y1="${H - B}" y2="${H - B}" style="stroke:var(--ink)"/><text x="${L - 6}" y="${T + 8}" font-size="11" text-anchor="end" style="fill:var(--ink-soft)">${Math.round(mx).toLocaleString()}</text>`;
@@ -941,13 +1017,13 @@ function renderUsage(r) {
   g += '</svg>';
   el.innerHTML = `<p class="hint">진한 막대가 계산에 쓴 12개월(${D.meta.win[0]} ~ ${D.meta.win[1]})입니다. 청록 = 이 품목 자체 판매, 회색청 = 상위 제품 판매 × BOM 소요량. 그룹사(태성정밀 ↔ 플로우텍) 거래는 뺐습니다.</p>${g}
    <div class="grid2" style="margin-top:8px">
-     <div><h3>이 부품이 들어가는 제품 (상위 10)</h3>${u.parents.length ? `<div class="tbl-wrap"><table><thead><tr><th>제품코드</th><th>제품명</th><th>개당 소요</th><th>12개월 소요량</th></tr></thead><tbody>${u.parents.slice(0, 10).map(p => `<tr><td>${esc(p.code)}</td><td>${esc(p.name)}</td><td class="n">${+p.ratio.toFixed(3)}</td><td class="n">${Math.round(p.qty12).toLocaleString()}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">BOM에 상위 제품이 없습니다.</p>'}</div>
+     <div><h3>이 부품이 들어가는 제품 (상위 10)</h3>${u.parents.length ? `<div class="tbl-wrap"><table><thead><tr><th>제품코드</th><th>제품명</th><th>개당 소요</th><th>12개월 소요량</th></tr></thead><tbody>${u.parents.slice(0, 10).map(q => `<tr><td>${esc(q.code)}</td><td>${esc(q.name)}</td><td class="n">${+q.ratio.toFixed(3)}</td><td class="n">${Math.round(q.qty12).toLocaleString()}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">BOM에 상위 제품이 없습니다.</p>'}</div>
      <div><h3>최근 매입 이력</h3>${r.it && r.it.buys && r.it.buys.length ? `<div class="tbl-wrap"><table><thead><tr><th>일자</th><th>구매처</th><th>입고 회사</th><th>수량</th><th>단가</th></tr></thead><tbody>${r.it.buys.map(b => `<tr><td>${b.date}</td><td>${esc(b.sup)}</td><td>${esc(b.co || '–')}</td><td class="n">${b.qty.toLocaleString()}</td><td class="n">${won(b.price)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">구매 이력이 없습니다.</p>'}
      <p class="status">자체 판매 12개월 ${Math.round(u.own12).toLocaleString()}개 · BOM 포함 ${Math.round(u.total12).toLocaleString()}개${r.it && r.it.buy12 ? ` · 구매 12개월 ${Math.round(r.it.buy12.qty).toLocaleString()}개` : ''}</p></div>
    </div>`;
 }
 $('#subPpt').onclick = async () => { const f = await buildSubPpt(); if (f) downloadBlob(f.blob, f.name); };
-$('#subTeams').onclick = async () => { const f = await buildSubPpt(); if (f) openTeams(f, `[부품 대체 검토] ${f.title}\n금형비 회수 수량 · 기간과 이익률 개선 효과를 정리했습니다.`); };
+$('#subTeams').onclick = async () => { const f = await buildSubPpt(); if (f) openTeams(f, `[부품 대체 검토] ${f.title}\n금형비 회수 기간과 이익률 개선 효과를 정리했습니다.`); };
 
 /* =================== 신규 제안서 탭 =================== */
 const P = () => S.props.find(x => x.id === S.curProp);
@@ -1277,33 +1353,51 @@ async function buildPricePpt() {
 async function buildSubPpt() {
   let list = S.subs.filter(s => s.pick); if (!list.length) list = S.subs.filter(s => s.id === S.curSub);
   if (!list.length) return null;
-  const title = list.length === 1 ? (list[0].title || list[0].oldName) : `부품 대체 검토 ${list.length}건`;
+  list.forEach(normSub);
+  const title = list.length === 1 ? (list[0].title || '부품 대체 검토') : `부품 대체 검토 ${list.length}건`;
   const pres = newPres(title); if (!pres) return null; const foot = `${ST().footerOrg} | ${title}`; let pg = 1;
+  const hdr = (arr, alignFrom = 1) => arr.map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k >= alignFrom ? 'right' : 'left' } }));
+  const tblOpt = (colW, y = 1.2, rowH = 0.27, fs = 8) => ({ x: 0.5, y, w: 9, colW, rowH, fontFace: FONT, fontSize: fs, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
   if (list.length > 1) {
     cover(pres, { kicker: 'COST DOWN', title: '부품 대체 검토', subtitle: `${list.length}건 · 금형비 회수 · 이익률 개선`, footer: `${ST().footerOrg.split('→')[0].trim()}  |  ${today()}` });
     const s = base(pres, 'SUMMARY', '검토 요약', ++pg, foot);
-    const hd = ['검토', '기존 단가', '신규 단가', '개당 절감', '연 사용량', '투자', '회수 기간', '연 절감액', '이익률'].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k ? 'right' : 'left' } }));
-    const body = list.map(x => { const r = subCalc(x); return [x.title || x.oldName, won(r.oldP), won(r.newP), won(r.save1), isFinite(r.qty) ? Math.round(r.qty).toLocaleString() : '–', won(r.invest), isFinite(r.payMon) ? r.payMon.toFixed(1) + '개월' : '회수 불가', won(r.annual), `${pct(r.mBefore)}→${pct(r.mAfter)}`].map((v, k) => ({ text: v, options: { align: k ? 'right' : 'left', bold: k === 6, color: k === 6 ? (isFinite(r.payMon) ? C.teal : C.red) : C.ink } })); });
-    s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW: [2.2, 0.8, 0.8, 0.75, 0.8, 0.9, 0.85, 0.95, 0.95], rowH: 0.3, fontFace: FONT, fontSize: 8, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+    const body = list.map(x => { const R = subCalc(x); return [x.title, R.n + '개', won(R.invest), won(R.annual), isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월' : '회수 불가', won(R.net3), `${pct(R.mBefore)} → ${pct(R.mAfter)}`].map((v, k) => ({ text: v, options: { align: k ? 'right' : 'left', bold: k === 4, color: k === 4 ? (isFinite(R.payMon) ? C.teal : C.red) : C.ink } })); });
+    s.addTable([hdr(['검토', '품목 수', '총 투자', '연간 절감액', '회수 기간', '3년 순이익', '이익률']), ...body], tblOpt([2.8, 0.7, 1.0, 1.1, 0.9, 1.1, 1.4], 1.2, 0.3));
   }
   for (const x of list) {
-    const r = subCalc(x); const s = base(pres, 'PART REPLACEMENT', `${x.title || '부품 대체 검토'}`, ++pg, foot);
-    const hd = [{ text: '', options: { fill: { color: C.ink } } }, { text: '기존', options: { bold: true, color: 'FFFFFF', fill: { color: C.steel }, align: 'right' } }, { text: '신규', options: { bold: true, color: 'FFFFFF', fill: { color: C.teal }, align: 'right' } }];
-    const rows = [hd, ['품목', x.oldCode ? `${x.oldName} (${x.oldCode})` : x.oldName, '동일 사양'], ['공급처', x.oldSupplier || '–', x.newSupplier || '–'], ['입고 회사', x.oldInto || '–', x.oldInto || '–'],
-      ['단가 (원)', won(r.oldP), won(r.newP) + (x.newCur !== 'KRW' ? `\n(${x.newPrice} ${x.newCur})` : '')], ['판매단가 기준 이익률', pct(r.mBefore), pct(r.mAfter)], ['금형비 · 투자 (원)', '–', won(r.invest)]]
-      .map((row, i) => i === 0 ? row : row.map((v, k) => ({ text: v, options: { align: k ? 'right' : 'left', bold: k === 0 || (k === 2 && i >= 4), color: k === 2 && i >= 4 ? C.teal : C.ink, fontSize: k === 0 ? 8 : 8.5 } })));
-    s.addTable(rows, { x: 0.5, y: 1.2, w: 4.6, colW: [1.5, 1.55, 1.55], rowH: 0.28, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
-    const k = [['개당 절감', `${won(r.save1)}원`, `${pct(r.saveRate)} 인하`], ['연간 사용량', isFinite(r.qty) ? Math.round(r.qty).toLocaleString() + '개' : '–', r.qtySrc], ['투자 회수 수량', r.save1 > 0 ? Math.ceil(r.payQty).toLocaleString() + '개' : '회수 불가', '금형비 ÷ 개당 절감'], ['회수 기간', isFinite(r.payMon) ? r.payMon.toFixed(1) + '개월' : '–', '연간 사용량 기준'], ['연간 절감액', won(r.annual) + '원', '3년 순이익 ' + won(r.net3) + '원'], ['이익률 개선', isFinite(r.mAfter) ? '+' + ((r.mAfter - r.mBefore) * 100).toFixed(1) + '%p' : '–', `판매단가 ${won(r.sell)}원 기준`]];
-    k.forEach((kk, i) => { const cx = 5.35 + (i % 2) * 2.1, cy = 1.2 + Math.floor(i / 2) * 0.66; const hl = i === 3 || i === 5; box(s, cx, cy, 2.0, 0.58, hl ? C.tealSoft : C.bg, null); T(s, kk[0], cx + 0.1, cy + 0.05, 1.8, 0.16, { fontSize: 7, color: C.soft }); T(s, kk[1], cx + 0.1, cy + 0.2, 1.8, 0.24, { fontSize: 12.5, bold: true, color: hl ? C.teal : C.ink }); T(s, kk[2], cx + 0.1, cy + 0.43, 1.8, 0.13, { fontSize: 6, color: C.mut }); });
-    if (isFinite(r.save1) && isFinite(r.qty) && r.qty > 0) {
-      const labels = Array.from({ length: 36 }, (_, i) => String(i + 1)); const mon = r.save1 * r.qty / 12; const vals = labels.map((_, i) => Math.round(mon * (i + 1) - r.invest));
-      T(s, '누적 손익 (원, 36개월)  —  0을 넘는 달이 투자 회수 시점', 0.5, 3.3, 6, 0.2, { fontSize: 8.5, bold: true });
-      s.addChart('bar', [{ name: '회수 전', labels, values: vals.map(v => Math.min(v, 0)) }, { name: '회수 후', labels, values: vals.map(v => Math.max(v, 0)) }], { x: 0.4, y: 3.5, w: 6.4, h: 1.7, barDir: 'col', barGrouping: 'stacked', chartColors: [C.red, C.teal], invertIfNegative: false, barGapWidthPct: 30, catAxisLabelFontSize: 6, valAxisLabelFontSize: 6, valAxisLabelFormatCode: '#,##0', catAxisLabelFontFace: FONT, valAxisLabelFontFace: FONT, valGridLine: { color: 'E6EAED', size: 0.5 }, showLegend: false, catAxisLineShow: false });
+    const R = subCalc(x);
+    const prow = (p, r, i) => [String(i + 1), `${p.oldName || ''}${p.oldCode ? '\n' + p.oldCode : ''}`, p.oldInto || '–', `${p.oldSupplier || '–'} → ${p.newSupplier || '–'}`, won(r.oldP), won(r.newP), won(r.save1), isFinite(r.qty) ? Math.round(r.qty).toLocaleString() : '–', won(r.mold), won(r.annual)]
+      .map((v, k) => ({ text: v, options: { align: k >= 4 ? 'right' : k === 0 ? 'center' : 'left', bold: k === 5 || k === 9, color: k === 5 ? C.teal : k === 6 && !(r.save1 > 0) ? C.red : C.ink, fontSize: k === 1 || k === 3 ? 7.5 : 8 } }));
+    const head = hdr(['#', '품목', '입고', '공급처 (기존 → 신규)', '기존 단가', '신규 단가', '개당 절감', '연 사용량', '금형비', '연간 절감'], 4);
+    const colW = [0.3, 1.75, 0.65, 1.7, 0.7, 0.7, 0.7, 0.75, 0.85, 0.9];
+    const rows = x.items.map((p, i) => prow(p, R.parts[i], i));
+    const sumRow = [{ text: '' }, { text: `합계 ${R.n}개 품목${R.other ? ` · 공통 투자 ${won(R.other)}원` : ''}`, options: { bold: true, colspan: 3 } }, { text: '' }, { text: '' }, { text: '' }, { text: '' }, { text: won(R.invest), options: { bold: true, align: 'right' } }, { text: won(R.annual), options: { bold: true, align: 'right', color: C.teal } }];
+    // 품목이 많으면 표만 따로 장을 나눔
+    const fitOne = rows.length <= 5;
+    const chunks = []; for (let i = 0; i < rows.length; i += fitOne ? 5 : 11) chunks.push(rows.slice(i, i + (fitOne ? 5 : 11)));
+    if (!fitOne) chunks.forEach((ch, ci) => { const s = base(pres, 'PART REPLACEMENT', `${x.title} — 대체 품목 (${ci + 1}/${chunks.length})`, ++pg, foot); s.addTable([head, ...ch, ...(ci === chunks.length - 1 ? [sumRow] : [])], tblOpt(colW, 1.2, 0.3)); });
+    const s = base(pres, 'PART REPLACEMENT', fitOne ? x.title : `${x.title} — 요약`, ++pg, foot);
+    let y = 1.2;
+    if (fitOne) { s.addTable([head, ...rows, ...(R.n > 1 ? [sumRow] : [])], tblOpt(colW, 1.2, 0.3)); y = 1.25 + 0.3 * (rows.length + 1 + (R.n > 1 ? 1 : 0)) + 0.1; }
+    const one = R.n === 1 ? R.parts[0] : null;
+    const k = [['총 투자', won(R.invest) + '원', `금형 ${won(R.invest - R.other)} · 공통 ${won(R.other)}`],
+      one ? ['투자 회수 수량', one.save1 > 0 ? Math.ceil(R.invest / one.save1).toLocaleString() + '개' : '회수 불가', '투자비 ÷ 개당 절감'] : ['매입비 절감률', pct(R.saveRate), '연간 매입액 대비'],
+      ['회수 기간', isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월' : '회수 불가', R.n > 1 ? '전체 절감액 기준' : '연간 사용량 기준'],
+      ['연간 절감액', won(R.annual) + '원', '3년 순이익 ' + won(R.net3) + '원'],
+      ['이익률 개선', isFinite(R.mAfter) ? '+' + ((R.mAfter - R.mBefore) * 100).toFixed(1) + '%p' : '–', `${pct(R.mBefore)} → ${pct(R.mAfter)}${R.n > 1 ? ' (판매액 가중)' : ''}`]];
+    const kw = 1.72;
+    k.forEach((kk, i) => { const cx = 0.5 + i * (kw + 0.1); const hl = i === 2 || i === 4; box(s, cx, y, kw, 0.6, hl ? C.tealSoft : C.bg, null); T(s, kk[0], cx + 0.1, y + 0.05, kw - 0.2, 0.16, { fontSize: 7, color: C.soft }); T(s, kk[1], cx + 0.1, y + 0.2, kw - 0.2, 0.24, { fontSize: 12.5, bold: true, color: hl ? C.teal : C.ink }); T(s, kk[2], cx + 0.1, y + 0.44, kw - 0.2, 0.13, { fontSize: 6, color: C.mut }); });
+    y += 0.72;
+    const ch = 5.15 - y - 0.2;
+    if (R.annual && ch > 0.8) {
+      const labels = Array.from({ length: 36 }, (_, i) => String(i + 1)); const mon = R.annual / 12; const vals = labels.map((_, i) => Math.round(mon * (i + 1) - R.invest));
+      T(s, '누적 손익 (원, 36개월)  —  0을 넘는 달이 투자 회수 시점', 0.5, y, 6, 0.2, { fontSize: 8.5, bold: true });
+      s.addChart('bar', [{ name: '회수 전', labels, values: vals.map(v => Math.min(v, 0)) }, { name: '회수 후', labels, values: vals.map(v => Math.max(v, 0)) }], { x: 0.4, y: y + 0.2, w: 6.4, h: ch, barDir: 'col', barGrouping: 'stacked', chartColors: [C.red, C.teal], invertIfNegative: false, barGapWidthPct: 30, catAxisLabelFontSize: 6, valAxisLabelFontSize: 6, valAxisLabelFormatCode: '#,##0', catAxisLabelFontFace: FONT, valAxisLabelFontFace: FONT, valGridLine: { color: 'E6EAED', size: 0.5 }, showLegend: false, catAxisLineShow: false });
     }
-    box(s, 6.95, 3.3, 2.55, 1.85, C.bg, null); T(s, '메모', 7.1, 3.38, 2.3, 0.2, { fontSize: 8.5, bold: true, color: C.teal });
-    T(s, [x.note, D && x.oldCode && r.it ? `MMS 기준: 구매 ${D.meta.buyAsOf || '–'} · 판매 ${D.meta.sellAsOf || '–'}${r.us ? `, 사용량 ${D.meta.win[0]}~${D.meta.win[1]}` : ''}` : ''].filter(Boolean).join('\n\n'), 7.1, 3.62, 2.3, 1.45, { fontSize: 7.5, color: C.ink });
+    box(s, 6.95, y, 2.55, 5.15 - y, C.bg, null); T(s, '메모', 7.1, y + 0.08, 2.3, 0.2, { fontSize: 8.5, bold: true, color: C.teal });
+    T(s, [x.note, D ? `MMS 기준: 구매 ${D.meta.buyAsOf || '–'} · 판매 ${D.meta.sellAsOf || '–'}${D.meta.win ? `, 사용량 ${D.meta.win[0]}~${D.meta.win[1]}` : ''}` : ''].filter(Boolean).join('\n\n'), 7.1, y + 0.32, 2.3, 5.15 - y - 0.4, { fontSize: 7.5, color: C.ink });
   }
-  return finish(pres, `부품대체검토_${list.length === 1 ? (list[0].oldCode || list[0].title) : list.length + '건'}_${today()}`, title);
+  return finish(pres, `부품대체검토_${list.length === 1 ? (list[0].title || '') : list.length + '건'}_${today()}`.replace(/\s+/g, '_'), title);
 }
 
 /* =================== 내려받기 · 팀즈 =================== */
@@ -1388,6 +1482,7 @@ document.addEventListener('change', e => { if (setKeys.includes(e.target.id) || 
   const st = await KV.get('state');
   S = st && st.settings ? st : freshState();
   S.settings = Object.assign(defaultSettings(), S.settings);
+  (S.subs || []).forEach(normSub);
   buildD(await KV.get('raw'));
   renderAll();
   spStart(); // 로그인 기록이 있으면 창 없이 바뀐 파일만 받아 옴
