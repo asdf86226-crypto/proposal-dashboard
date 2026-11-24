@@ -334,7 +334,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
 <dialog id="dlgPaste">
   <div class="hd">엑셀에서 붙여넣기</div>
   <div class="bd">
-    <p class="hint" style="margin:0">엑셀에서 아래 순서의 열을 복사해 붙여 넣으세요. 머리글 줄은 있어도 됩니다.<br><code>품목 | 품목코드 | 구분(수입/국내) | 통화(USD/CNY/KRW) | 단가 | 수량</code></p>
+    <p class="hint" style="margin:0">엑셀에서 아래 순서의 열을 복사해 붙여 넣으세요. 머리글 줄은 있어도 됩니다.<br><code>품목 | 품목코드 | 구분(국내/수입/에이전트) | 통화(USD/CNY/KRW) | 단가 | 수량</code></p>
     <textarea id="pasteArea" style="min-height:180px;font-family:ui-monospace,Consolas,monospace;font-size:12px"></textarea>
   </div>
   <div class="ft"><button class="b" id="pasteCancel">닫기</button><button class="b p" id="pasteOk">추가</button></div>
@@ -464,6 +464,12 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 /* ---------------- 가격 계산 엔진 (판매가 산출표와 동일) ---------------- */
 const ST = () => S.settings;
 function fxOf(cur) { return cur === 'USD' ? num(ST().fxUsd) : cur === 'CNY' ? num(ST().fxCny) : 1; }
+/* 구분: 국내(원화) · 수입(외화, 수입 부대비용) · 에이전트(수입품을 원화로 입고, 에이전트 부대비용) — 저장은 예전처럼 div + cur */
+const KINDS = [['국내', '국내'], ['수입', '수입 (외화)'], ['에이전트', '에이전트 (원화)']];
+const kindOf = (div, cur) => div === '국내' ? '국내' : cur === 'KRW' ? '에이전트' : '수입';
+function applyKind(o, kind, dk, ck) { if (kind === '국내') { o[dk] = '국내'; o[ck] = 'KRW'; } else if (kind === '에이전트') { o[dk] = '수입'; o[ck] = 'KRW'; } else { o[dk] = '수입'; if (o[ck] === 'KRW' || !o[ck]) o[ck] = 'USD'; } }
+function kindSel(attr, div, cur) { const k = kindOf(div, cur); return `<select ${attr}>${KINDS.map(([v, t]) => `<option value="${v}" ${k === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`; }
+function curSel(attr, div, cur) { return kindOf(div, cur) === '수입' ? `<select ${attr}>${['USD', 'CNY'].map(x => `<option ${cur === x ? 'selected' : ''}>${x}</option>`).join('')}</select>` : `<select ${attr} disabled title="국내 · 에이전트는 원화"><option>KRW</option></select>`; }
 function landedCost(div, cur, price) {
   const p = num(price); if (!isFinite(p)) return NaN;
   const s = ST();
@@ -519,8 +525,8 @@ function renderPrice() {
       <td class="imgcell" tabindex="0" title="누른 뒤 Ctrl+V로 붙여넣기 · 끌어다 놓기 · 더블클릭으로 파일 고르기">${r.img ? `<img src="${r.img}" alt=""><button class="x" data-imgx title="사진 지우기">×</button>` : '<span>사진</span>'}</td>
       <td><input data-k="name" value="${esc(r.name)}" style="min-width:110px"></td>
       <td><input data-k="code" value="${esc(r.code)}" style="min-width:110px" data-codesearch="1"></td>
-      <td><select data-k="div"><option ${r.div === '수입' ? 'selected' : ''}>수입</option><option ${r.div === '국내' ? 'selected' : ''}>국내</option></select></td>
-      <td><select data-k="cur">${['USD', 'CNY', 'KRW'].map(x => `<option ${r.cur === x ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
+      <td>${kindSel('data-k="kind"', r.div, r.cur)}</td>
+      <td>${curSel('data-k="cur"', r.div, r.cur)}</td>
       <td><input type="number" step="any" data-k="price" value="${esc(r.price)}" style="width:86px"></td>
       <td><input type="number" data-k="qty" value="${esc(r.qty)}" style="width:66px"></td>
       <td class="n" data-c="cost">${won(c.cost)}</td>
@@ -567,6 +573,7 @@ function renderLadder() {
 $('#priceTbl').addEventListener('input', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return; const k = e.target.dataset.k; if (!k) return;
   const r = PR().find(x => x.id === tr.dataset.id);
+  if (k === 'kind') { applyKind(r, e.target.value, 'div', 'cur'); save(); return; }
   r[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; save();
   if (k === 'code' || k === 'name') return; // 다시 그리면 커서가 사라지므로 blur 때 처리
   updatePriceLive(); // 입력 칸은 그대로 두고 계산 칸만 바꿈 (커서 유지)
@@ -574,7 +581,7 @@ $('#priceTbl').addEventListener('input', e => {
 $('#priceTbl').addEventListener('change', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return; const k = e.target.dataset.k;
   if (k === 'code') { const r = PR().find(x => x.id === tr.dataset.id); fillPriceFromERP(r, false); }
-  if (k === 'code' || k === 'div' || k === 'cur') renderPriceKeepFocus(); else updatePriceLive();
+  if (k === 'code' || k === 'kind' || k === 'cur') renderPriceKeepFocus(); else updatePriceLive();
 });
 function renderPriceKeepFocus() { // 탭으로 넘어간 칸을 기억했다가 다시 그린 뒤 그 칸으로 돌려놓음
   setTimeout(() => { const a = document.activeElement; const tr = a && a.closest && a.closest('#priceTbl tr[data-id]');
@@ -640,7 +647,7 @@ $('#pasteOk').onclick = () => {
     const c = l.split('\t'); if (c.length < 2) continue;
     if (/품목|상품/.test(c[0]) && /코드/.test(c[1] || '')) continue;
     const cur = (c[3] || 'KRW').trim().toUpperCase();
-    PR().push({ id: uid(), name: (c[0] || '').trim(), code: (c[1] || '').trim(), div: /국내/.test(c[2]) ? '국내' : '수입', cur: ['USD', 'CNY', 'KRW'].includes(cur) ? cur : 'KRW', price: num(c[4]) || '', qty: num(c[5]) || '', sga: '', op: '', final: '', pick: true }); n++;
+    PR().push({ id: uid(), name: (c[0] || '').trim(), code: (c[1] || '').trim(), div: /국내/.test(c[2]) ? '국내' : '수입', cur: /에이전트/.test(c[2]) ? 'KRW' : ['USD', 'CNY', 'KRW'].includes(cur) ? cur : 'KRW', price: num(c[4]) || '', qty: num(c[5]) || '', sga: '', op: '', final: '', pick: true }); n++;
   }
   save(); renderPrice(); $('#dlgPaste').close(); toast(`${n}개 품목을 추가했습니다`);
 };
@@ -956,8 +963,8 @@ function partRow(p, i, sel) {
     <td>${inp('oldPrice', 'type="number" step="any"', 86)}</td>
     <td class="c mut">→</td>
     <td>${inp('newSupplier', '', 120)}</td>
-    <td>${sl('newDiv', [['국내', '국내'], ['수입', '수입']])}</td>
-    <td>${sl('newCur', [['KRW', 'KRW'], ['USD', 'USD'], ['CNY', 'CNY']])}</td>
+    <td>${kindSel('data-pk="newKind"', p.newDiv, p.newCur)}</td>
+    <td>${curSel('data-pk="newCur"', p.newDiv, p.newCur)}</td>
     <td>${inp('newPrice', 'type="number" step="any"', 86)}</td>
     <td class="n" data-pc="newP">${won(r.newP)}</td>
     <td class="n strong" data-pc="save1">${won(r.save1)}</td>
@@ -996,6 +1003,7 @@ $('#subEdit').addEventListener('input', e => {
   if (t.dataset.k) { s[t.dataset.k] = t.value; save(); if (t.dataset.k === 'title') renderSubList(); renderSubResult(); return; }
   const p = t.dataset.pk && partOf(t); if (!p) return;
   if (t.readOnly) return;
+  if (t.dataset.pk === 'newKind') { applyKind(p, t.value, 'newDiv', 'newCur'); save(); return; }
   p[t.dataset.pk] = t.value; save();
   if (t.dataset.pk !== 'oldCode') updatePartRow(p);
 });
