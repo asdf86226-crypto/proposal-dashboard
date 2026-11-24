@@ -37,14 +37,14 @@ header{background:var(--hdr);color:var(--hdr-fg);margin-top:calc(-1 * env(safe-a
 .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .brand .k{color:var(--hdr-k);font-size:11px;font-weight:700;letter-spacing:.12em}
 .brand h1{margin:0;font-size:20px}
-.sp-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;color:var(--hdr-mut)}
+.sp-top{display:flex;justify-content:flex-end;align-items:center;gap:7px;flex-wrap:wrap;padding-top:7px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(28px, env(safe-area-inset-right, 0px));font-size:11.5px;color:var(--ink-soft);line-height:1.5;text-align:right}
 .sp-top:empty{display:none}
 .sp-top .dot{width:7px;height:7px;border-radius:50%;flex:none;background:#8a94a6}
 .sp-top.on .dot{background:#10b981}
 .sp-top.off .dot{background:#f59e0b}
-.sp-top b{color:var(--hdr-fg);font-weight:700}
-.sp-top .sp-btn{padding:3px 10px;font-size:12px}
-.sp-top .sp-btn.ghost{background:transparent;color:var(--hdr-mut);border-color:transparent}
+.sp-top b{color:var(--ink);font-weight:700}
+.sp-top .sp-btn{padding:2px 9px;font-size:11.5px}
+.sp-top .sp-btn.ghost{background:transparent;border-color:transparent;color:var(--ink-soft);padding:0 4px}
 .brand .meta{margin-left:auto;color:var(--hdr-mut);font-size:12px}
 nav{display:flex;gap:2px;margin-top:12px;overflow-x:auto}
 nav button{background:transparent;border:0;color:var(--hdr-mut);padding:10px 16px;font:600 14px var(--sans);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
@@ -138,7 +138,6 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
     <h1>제품 제안 대시보드</h1>
     <span class="meta" id="hdrMeta"></span>
   </div>
-  <div class="sp-top" id="spTop" title="쉐어포인트(MMS) 자료 기준 시각 — 열 때마다 바뀐 자료가 있으면 자동으로 받습니다"></div>
   <nav id="nav">
     <button data-t="price" class="on">판매가 산출</button>
     <button data-t="sub">부품 대체</button>
@@ -146,6 +145,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
     <button data-t="data">데이터 · 설정</button>
   </nav>
 </header>
+<div class="sp-top" id="spTop" title="쉐어포인트(MMS) 자료 기준 시각 — 열 때마다 바뀐 자료가 있으면 자동으로 받습니다"></div>
 <main>
 
 <!-- ============ 판매가 산출 ============ -->
@@ -659,10 +659,15 @@ function spLine(state, extra) { // state: 'checking' | 'on' | 'off' | 'error' | 
   const btn = `<button class="b sp-btn" id="spBtn">📥 쉐어포인트 자료 가져오기</button>`;
   if (state === 'na') { el.innerHTML = '<span class="dot"></span>이 파일에서는 쉐어포인트에 연결할 수 없습니다 (GitHub 주소로 여세요) · 데이터 · 설정 탭에서 파일을 직접 넣을 수 있습니다'; return; }
   if (state === 'checking') { el.innerHTML = '<span class="dot"></span>쉐어포인트(MMS) 확인 중…'; return; }
-  if (state === 'off') { el.innerHTML = `<span class="dot"></span><b>연결 안 됨</b><span>회사 계정으로 연결하면 이카운트 구매 · 판매 · BOM 자료를 자동으로 받습니다</span>${btn}`; return; }
+  if (state === 'off') { el.innerHTML = `<span class="dot"></span><b>연결 안 됨</b><span>· 버튼을 누르면 회사 계정으로 연결합니다</span>${btn}`; return; }
   if (state === 'error') { el.innerHTML = `<span class="dot"></span><b>갱신 못 함</b><span>${esc(extra || '')}</span>${btn}`; return; }
   const l = ST().spLast || {};
-  el.innerHTML = `<span class="dot"></span><b>쉐어포인트(MMS) 연결됨</b><span>${esc(l.stamp || '')} 기준 · ${esc(l.companies || '')}${D ? ' · 품목 ' + Object.keys(D.items).length.toLocaleString() + '개' : ''}</span><button class="b sp-btn ghost" id="spBtn" title="지금 다시 확인">↻</button>`;
+  const parts = ['✅ 구매 ' + (l.buyAt || '–') + ' 기준 (그룹사 거래 제외)'];
+  if (D) parts.push('품목 ' + Object.keys(D.items).length.toLocaleString() + '개');
+  if (D && D.meta.win) parts.push('판매 최근 12개월');
+  if (D && D.meta.bomRows) parts.push('BOM ' + D.meta.bomRows.toLocaleString() + '건');
+  const tail = `(쉐어포인트 ${(l.companies || '').replace(/ \+ /g, '·')}${l.restAt ? ' · ' + l.restAt + ' 기준' : ''})`;
+  el.innerHTML = `<span class="dot"></span><b>쉐어포인트(MMS) 연결됨</b><span>${esc(parts.join(' · ') + ' ' + tail)}</span><button class="b sp-btn ghost" id="spBtn" title="지금 다시 확인">↻</button>`;
 }
 document.addEventListener('click', e => { if (e.target.closest('#spBtn')) spSync(true); });
 async function spSync(interactive) {
@@ -678,7 +683,7 @@ async function spSync(interactive) {
       const key = comp + '|' + kind;
       try {
         const r = await MmsSp.download(MmsSp.reportPath(comp, rep), interactive, parts[key] ? tags[key] : undefined);
-        if (r.meta.lastModifiedDateTime) times.push(new Date(r.meta.lastModifiedDateTime));
+        if (r.meta.lastModifiedDateTime) times.push([kind, new Date(r.meta.lastModifiedDateTime)]);
         comps.add(comp);
         if (r.bytes) { const t = readSheet(r.bytes); parts[key] = { name: `${comp} ${rep}_최신`, head: t.head, rows: t.rows }; tags[key] = r.meta.eTag; changed.push(key); }
       } catch (e) {
@@ -690,8 +695,10 @@ async function spSync(interactive) {
     }
     if (errs.length && !comps.size) { spLine('error', errs[0]); return; }
     if (changed.length || !raw.parts) { await KV.set('raw', { parts }); await KV.set('spTags', tags); buildD({ parts }); renderAll(); }
-    const old = times.length ? new Date(Math.min(...times)) : null; const p2 = n => String(n).padStart(2, '0');
-    S.settings.spLast = { stamp: old ? `${old.getMonth() + 1}/${old.getDate()} ${p2(old.getHours())}:${p2(old.getMinutes())}` : '', companies: [...comps].join(' + '), at: Date.now() }; save();
+    const p2 = n => String(n).padStart(2, '0');
+    const oldest = ks => { const ts = times.filter(t => ks.includes(t[0])).map(t => t[1]); return ts.length ? new Date(Math.min(...ts)) : null; }; // 두 회사 중 더 오래된 쪽이 '모두 반영된' 시각
+    const b = oldest(['buy']), r2 = oldest(['sell', 'bom']);
+    S.settings.spLast = { buyAt: b ? `${b.getFullYear()}-${p2(b.getMonth() + 1)}-${p2(b.getDate())} ${p2(b.getHours())}:${p2(b.getMinutes())}` : '', restAt: r2 ? `${p2(r2.getMonth() + 1)}-${p2(r2.getDate())} ${p2(r2.getHours())}:${p2(r2.getMinutes())}` : '', companies: [...comps].join(' + '), at: Date.now() }; save();
     spLine('on');
     if (interactive) toast(changed.length ? `쉐어포인트에서 ${changed.length}개 파일을 새로 받았습니다` : '쉐어포인트 자료가 최신입니다');
     if (errs.length) toast('일부 파일을 못 읽었습니다: ' + errs[0], 6000);
@@ -756,14 +763,14 @@ function buildD(raw) {
   // BOM — 같은 생산품목이 두 회사에 다 있으면 먼저 읽은 회사(태성정밀) 것만 씀 (중복 계산 방지)
   const parents = {};
   if (T.bom.length) {
-    const byParent = {};
+    const byParent = {}; let bomRows = 0;
     for (const tb of T.bom) {
       const h = tb.head, iP = col(h, '생산품목코드'), iPN = col(h, '생산품목명'), iV = col(h, 'BOM버전'), iC = col(h, '소모품목코드'), iCN = col(h, '소모품목명'), iQ = col(h, '생산수량'), iR = col(h, '소요량');
       const mine = {};
       for (const r of tb.rows) {
         const p = cellCode(r[iP]), c = cellCode(r[iC]); if (!p || !c || p === c) continue;
         if (byParent[p] && !mine[p]) continue;
-        mine[p] = true;
+        mine[p] = true; bomRows++;
         const v = String(r[iV] || '기본'); const ratio = (num(r[iR]) || 0) / (num(r[iQ]) || 1);
         it(p).name = it(p).name || String(r[iPN] || ''); it(c).name = it(c).name || String(r[iCN] || '');
         ((byParent[p] || (byParent[p] = {}))[v] || (byParent[p][v] = [])).push([c, ratio]);
@@ -774,7 +781,7 @@ function buildD(raw) {
       const agg = {}; for (const [c, r] of use) agg[c] = (agg[c] || 0) + r;
       for (const [c, r] of Object.entries(agg)) (parents[c] || (parents[c] = [])).push([p, r]);
     }
-    meta.bomCount = Object.keys(byParent).length;
+    meta.bomCount = Object.keys(byParent).length; meta.bomRows = bomRows;
   }
   const names = k => T[k].map(t => t.name).join(' + ');
   D = { items, parents, meta, files: { buy: names('buy'), sell: names('sell'), bom: names('bom') }, sp: !!(raw && raw.parts) };
