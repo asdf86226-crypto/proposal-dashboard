@@ -169,7 +169,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
       <div class="row">
         <button class="b" id="priceAdd">+ 품목 추가</button>
         <button class="b" id="pricePaste">엑셀에서 붙여넣기</button>
-        <button class="b p" id="pricePpt">유통가 보고 PPT</button>
+        <button class="b p" id="pricePpt">유통가 제안 PPT</button>
         <button class="b d" id="priceTeams">팀즈로 보내기</button>
       </div>
     </div>
@@ -608,7 +608,7 @@ $('#pasteOk').onclick = () => {
   save(); renderPrice(); $('#dlgPaste').close(); toast(`${n}개 품목을 추가했습니다`);
 };
 $('#pricePpt').onclick = async () => { const f = await buildPricePpt(); if (f) downloadBlob(f.blob, f.name); };
-$('#priceTeams').onclick = async () => { const f = await buildPricePpt(); if (f) openTeams(f, `[유통가 보고] ${f.title}\n대리점가(최종 유통가)는 제안 최저가입니다. 이익률을 올리거나 내려 단가를 정해 주세요.`); };
+$('#priceTeams').onclick = async () => { const f = await buildPricePpt(); if (f) openTeams(f, `[유통가 제안] ${f.title}\n대리점가(최종 유통가)는 제안 최저가입니다. 이익률을 올리거나 내려 단가를 정해 주세요.`); };
 
 /* =================== 품목코드 검색 =================== */
 let suggTarget = null, suggItems = [], suggIdx = -1;
@@ -1354,11 +1354,11 @@ async function buildPropPpt() {
   return finish(pres, `${p.title}_${today()}`, p.title);
 }
 
-/* ---------- 유통가 보고 PPT ---------- */
+/* ---------- 유통가 제안 PPT ---------- */
 async function buildPricePpt() {
   const rows = S.priceRows.filter(r => r.pick && isFinite(priceRowCalc(r).final));
   if (!rows.length) { toast('보고 칸에 체크된 품목이 없습니다'); return null; }
-  const title = rows.length === 1 ? `${rows[0].name} 유통가 보고` : `${rows[0].name} 외 ${rows.length - 1}건 유통가 보고`;
+  const title = rows.length === 1 ? `${rows[0].name} 유통가 제안` : `${rows[0].name} 외 ${rows.length - 1}건 유통가 제안`;
   const pres = newPres(title); if (!pres) return null; const st = ST();
   const foot = `${st.footerOrg} | ${title}`;
   cover(pres, { kicker: 'PRICE REPORT', title: '최종 유통가 제안', subtitle: `${rows.length}개 품목 · 대리점가(제안 최저가) · 소비자가\n${st.fxMonth} 환율 USD ${num(st.fxUsd).toFixed(2)} · CNY ${num(st.fxCny).toFixed(2)}`, footer: `${st.footerOrg.split('→')[0].trim()}  |  ${today()}` });
@@ -1381,7 +1381,7 @@ async function buildPricePpt() {
   const body = rows.slice(0, 13).map(r => { const c = priceRowCalc(r); return [{ text: r.code || r.name, options: { bold: true } }, { text: won(c.bep), options: { align: 'right', color: C.soft } }, ...ops.map(o => ({ text: won(priceOf(c.cost, r.sga, o).base), options: { align: 'right', bold: o === num(st.op), color: o === num(st.op) ? C.teal : C.ink } }))]; });
   s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW: [1.8, 1.0, ...ops.map(() => 6.2 / ops.length)], rowH: 0.27, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
   T(s, 'BEP 아래로 팔면 팔수록 손해입니다. 청록 열이 제안 대리점가(최저가)이며, 이익률을 올려 더 높은 단가로 협상할 수 있습니다.', 0.5, 4.95, 9, 0.2, { fontSize: 7.5, color: C.soft });
-  return finish(pres, `유통가보고_${today()}`, title);
+  return finish(pres, `유통가제안_${today()}`, title);
 }
 
 /* ---------- 부품 대체 PPT ---------- */
