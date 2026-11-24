@@ -223,10 +223,6 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
     <div class="drop" id="drop" style="margin-top:10px">여기에 파일을 끌어다 놓거나 <button class="b p" id="pickFiles">파일 고르기</button>
       <input type="file" id="fileIn" accept=".xlsx,.xls" multiple hidden></div>
     <div class="status" id="dataStatus" style="margin-top:10px"></div>
-    <div class="row" style="margin-top:10px">
-      <div class="fld"><label>그룹사 이름 (이 이름이 들어간 거래처는 판매량 · 매입단가에서 뺌)</label><input id="internalNames" style="width:220px"></div>
-    </div>
-    <p class="hint" style="margin-top:6px">태성정밀 ↔ 플로우텍처럼 회사끼리 넘긴 거래는 <b>항상 판매량에서 뺍니다</b>(같은 제품이 두 번 세지지 않도록). 최근 매입단가도 그룹사 거래보다 외부 공급사 매입을 먼저 씁니다.</p>
   </div>
 
   <div class="grid2">
@@ -706,6 +702,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 function spStart() { if (!spOk()) { spLine('na'); return; } spLine(ST().spLast ? 'on' : 'checking'); spSync(false); }
 
 /* MMS 자료 → 품목별 집계. raw 는 직접 넣은 파일({buy, sell, bom}) 또는 쉐어포인트에서 받은 두 회사 자료({parts}) */
+const GROUP_NAMES = ['플로우텍', '태성정밀']; // 거래처 이름에 이 말이 들어가면 그룹사 거래로 봄
 const exInt = () => true; // 그룹사(태성정밀 ↔ 플로우텍) 거래는 항상 판매량에서 뺀다
 function buildD(raw) {
   const tables = kind => raw && raw.parts ? Object.entries(raw.parts).filter(([k]) => k.endsWith('|' + kind)).map(([k, v]) => Object.assign({ company: k.split('|')[0] }, v)) : (raw && raw[kind] ? [Object.assign({ company: '' }, raw[kind])] : []);
@@ -714,7 +711,7 @@ function buildD(raw) {
   const items = {}; const it = c => items[c] || (items[c] = { name: '' });
   const multi = new Set([...T.buy, ...T.sell, ...T.bom].map(t => t.company)).size > 1;
   const meta = { multi };
-  const internal = ST().internalNames.split(',').map(s => s.trim()).filter(Boolean);
+  const internal = GROUP_NAMES;
   const isInt = name => internal.some(n => name.includes(n));
   // 구매현황 — 최근 매입단가는 그룹사(플로우텍 ↔ 태성정밀) 거래보다 외부 공급사 매입을 우선
   if (T.buy.length) {
@@ -1344,14 +1341,14 @@ $('#paTest').onclick = async () => {
 };
 
 /* =================== 설정 탭 =================== */
-const setKeys = ['fxUsd', 'fxCny', 'costImport', 'costAgent', 'costDomestic', 'sga', 'op', 'consumerMult', 'method', 'roundUnit', 'footerOrg', 'paUrl', 'teamsTo', 'internalNames'];
+const setKeys = ['fxUsd', 'fxCny', 'costImport', 'costAgent', 'costDomestic', 'sga', 'op', 'consumerMult', 'method', 'roundUnit', 'footerOrg', 'paUrl', 'teamsTo'];
 function parseFx() { return lines(ST().fxTable).map(l => l.split(/[,\t ]+/)).filter(a => /^\d{4}-\d{2}$/.test(a[0])).map(a => ({ m: a[0], usd: num(a[1]), cny: num(a[2]) })); }
 function renderSettings() {
   const s = ST(); setKeys.forEach(k => { const el = $('#' + k); if (el) el.value = s[k]; });
   $('#fxTable').value = s.fxTable;
   const fx = parseFx(); $('#fxMonth').innerHTML = fx.map(f => `<option ${f.m === s.fxMonth ? 'selected' : ''}>${f.m}</option>`).join('') + `<option value="직접" ${!fx.some(f => f.m === s.fxMonth) ? 'selected' : ''}>직접 입력</option>`;
 }
-setKeys.forEach(k => { const el = $('#' + k); if (!el) return; el.addEventListener('input', () => { S.settings[k] = el.value; if (k === 'fxUsd' || k === 'fxCny') { S.settings.fxMonth = '직접'; $('#fxMonth').value = '직접'; } save(); renderHdr(); if (k === 'internalNames') rebuildD(); }); });
+setKeys.forEach(k => { const el = $('#' + k); if (!el) return; el.addEventListener('input', () => { S.settings[k] = el.value; if (k === 'fxUsd' || k === 'fxCny') { S.settings.fxMonth = '직접'; $('#fxMonth').value = '직접'; } save(); renderHdr(); }); });
 $('#fxMonth').addEventListener('change', e => { const f = parseFx().find(x => x.m === e.target.value); S.settings.fxMonth = e.target.value; if (f) { S.settings.fxUsd = f.usd; S.settings.fxCny = f.cny; } save(); renderSettings(); renderHdr(); });
 $('#fxTable').addEventListener('change', e => { S.settings.fxTable = e.target.value; const fx = parseFx(); const last = fx[fx.length - 1]; if (last && S.settings.fxMonth !== '직접') { const f = fx.find(x => x.m === S.settings.fxMonth) || last; S.settings.fxMonth = f.m; S.settings.fxUsd = f.usd; S.settings.fxCny = f.cny; } save(); renderSettings(); renderHdr(); });
 async function rebuildD() { const raw = await KV.get('raw'); buildD(raw); renderDataStatus(); }
