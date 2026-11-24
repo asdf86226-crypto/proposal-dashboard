@@ -1482,6 +1482,7 @@ function base(pres, kicker, title, page, footer) {
   T(s, String(page).padStart(2, '0'), 9.0, 5.28, 0.5, 0.2, { fontSize: 7.5, color: C.mut, align: 'right' });
   return s;
 }
+function cut(t, w) { t = String(t ?? ''); let n = 0, out = ''; for (const ch of t) { n += /[\u1100-\uFFDC]/.test(ch) ? 2 : 1; if (n > w) return out.trimEnd() + '…'; out += ch; } return out; }
 function bullets(arr, o = {}) { return arr.map(t => ({ text: t, options: Object.assign({ bullet: { code: '2022' }, breakLine: true, paraSpaceAfter: 3 }, o) })); }
 async function finish(pres, name, title) {
   const blob = await pres.write({ outputType: 'blob' });
@@ -1635,7 +1636,7 @@ async function buildPricePpt() {
   for (let i = 0; i < rows.length; i += per) {
     const s = base(pres, 'PRICE', `대리점가 · 소비자가 제안 (${i + 1}~${Math.min(rows.length, i + per)} / ${rows.length})`, ++pg, foot);
     const hd = [...(hasImg ? ['사진'] : []), '품목', '품목코드', '수량', '매입원가', 'BEP', '대리점가', '소비자가', '영업이익/개', '영업이익률'].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k < (hasImg ? 3 : 2) ? (hasImg && k === 0 ? 'center' : 'left') : 'right' } }));
-    const body = rows.slice(i, i + per).map(r => { const c = priceRowCalc(r); return [(r.desc || '').trim() ? { text: [{ text: r.name, options: { breakLine: true } }, { text: r.desc.split(/\n+/).map(x => x.trim()).filter(Boolean).join(' · ').slice(0, 70), options: { fontSize: 6.5, color: C.soft } }], options: { align: 'left' } } : r.name, r.code, (num(r.qty) || 0).toLocaleString(), won(c.cost), won(c.bep), { text: won(c.final), options: { bold: true, color: C.teal, align: 'right' } }, { text: won(c.consumer), options: { bold: true, align: 'right' } }, won(c.opAmt), { text: pct(c.opRate), options: { align: 'right', color: c.opRate < 0 ? C.red : C.ink } }].map((v, k) => typeof v === 'object' ? v : { text: v, options: { align: k < 2 ? 'left' : 'right' } }); });
+    const body = rows.slice(i, i + per).map(r => { const c = priceRowCalc(r); return [(r.desc || '').trim() ? { text: [{ text: cut(r.name, 30), options: { breakLine: true } }, { text: r.desc.split(/\n+/).map(x => x.trim()).filter(Boolean).join(' · ').slice(0, 70), options: { fontSize: 6.5, color: C.soft } }], options: { align: 'left' } } : cut(r.name, 24), cut(r.code, 22), (num(r.qty) || 0).toLocaleString(), won(c.cost), won(c.bep), { text: won(c.final), options: { bold: true, color: C.teal, align: 'right' } }, { text: won(c.consumer), options: { bold: true, align: 'right' } }, won(c.opAmt), { text: pct(c.opRate), options: { align: 'right', color: c.opRate < 0 ? C.red : C.ink } }].map((v, k) => typeof v === 'object' ? v : { text: v, options: { align: k < 2 ? 'left' : 'right' } }); });
     if (hasImg) body.forEach(b => b.unshift({ text: '' }));
     const colW = hasImg ? (hasDesc ? [0.55, 2.2, 1.05, 0.5, 0.8, 0.75, 0.9, 0.9, 0.75, 0.6] : [0.55, 1.3, 1.25, 0.6, 0.9, 0.8, 0.95, 0.95, 0.85, 0.85]) : (hasDesc ? [2.2, 1.2, 0.55, 0.85, 0.8, 0.95, 0.95, 0.75, 0.75] : [1.5, 1.4, 0.65, 0.95, 0.85, 1.0, 1.0, 0.85, 0.8]);
     s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW, rowH: rh, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
@@ -1664,12 +1665,12 @@ async function buildSubPpt() {
   if (list.length > 1) {
     cover(pres, { kicker: 'COST DOWN', title: '부품 대체 검토', subtitle: `${list.length}건 · 금형비 회수 · 이익률 개선`, footer: `${ST().footerOrg.split('→')[0].trim()}  |  ${today()}` });
     const s = base(pres, 'SUMMARY', '검토 요약', ++pg, foot);
-    const body = list.map(x => { const R = subCalc(x); return [x.title, R.n + '개', won(R.invest), won(R.annual), isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월' : '회수 불가', won(R.net3), `${pct(R.mBefore)} → ${pct(R.mAfter)}`].map((v, k) => ({ text: v, options: { align: k ? 'right' : 'left', bold: k === 4, color: k === 4 ? (isFinite(R.payMon) ? C.teal : C.red) : C.ink } })); });
+    const body = list.map(x => { const R = subCalc(x); return [cut(x.title, 40), R.n + '개', won(R.invest), won(R.annual), isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월' : '회수 불가', won(R.net3), `${pct(R.mBefore)} → ${pct(R.mAfter)}`].map((v, k) => ({ text: v, options: { align: k ? 'right' : 'left', bold: k === 4, color: k === 4 ? (isFinite(R.payMon) ? C.teal : C.red) : C.ink } })); });
     s.addTable([hdr(['검토', '품목 수', '총 투자', '연간 절감액', '회수 기간', '3년 순이익', '이익률']), ...body], tblOpt([2.8, 0.7, 1.0, 1.1, 0.9, 1.1, 1.4], 1.2, 0.3));
   }
   for (const x of list) {
     const R = subCalc(x);
-    const prow = (p, r, i) => [String(i + 1), `${p.oldName || ''}${p.oldCode ? '\n' + p.oldCode : ''}`, p.oldInto || '–', `${p.oldSupplier || '–'} → ${p.newSupplier || '–'}`, won(r.oldP), won(r.newP), won(r.save1), isFinite(r.qty) ? Math.round(r.qty).toLocaleString() : '–', won(r.mold), won(r.annual)]
+    const prow = (p, r, i) => [String(i + 1), `${cut(p.oldName || '', 26)}${p.oldCode ? '\n' + cut(p.oldCode, 26) : ''}`, p.oldInto || '–', cut(`${p.oldSupplier || '–'} → ${p.newSupplier || '–'}`, 28), won(r.oldP), won(r.newP), won(r.save1), isFinite(r.qty) ? Math.round(r.qty).toLocaleString() : '–', won(r.mold), won(r.annual)]
       .map((v, k) => ({ text: v, options: { align: k >= 4 ? 'right' : k === 0 ? 'center' : 'left', bold: k === 5 || k === 9, color: k === 5 ? C.teal : k === 6 && !(r.save1 > 0) ? C.red : C.ink, fontSize: k === 1 || k === 3 ? 7.5 : 8 } }));
     const head = hdr(['#', '품목', '입고', '공급처 (기존 → 신규)', '기존 단가', '신규 단가', '개당 절감', '연 사용량', '금형비', '연간 절감'], 4);
     const colW = [0.3, 1.75, 0.65, 1.7, 0.7, 0.7, 0.7, 0.75, 0.85, 0.9];
@@ -1703,14 +1704,14 @@ async function buildSubPpt() {
       s2.addChart('bar', [{ name: '계산 기간', labels, values: u.total.map((v, k) => inW[k] ? Math.round(v) : 0) }, { name: '그 외', labels, values: u.total.map((v, k) => inW[k] ? 0 : Math.round(v)) }],
         { x: 0.4, y: 1.25, w: 9.2, h: 1.75, barDir: 'col', barGrouping: 'stacked', chartColors: [C.steel, 'C9D3D9'], barGapWidthPct: 25, catAxisLabelFontSize: 6.5, valAxisLabelFontSize: 6.5, valAxisLabelFormatCode: '#,##0', catAxisLabelFontFace: FONT, valAxisLabelFontFace: FONT, valGridLine: { color: 'E6EAED', size: 0.5 }, showLegend: false });
       const th = (arr, al) => arr.map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: al[k] } }));
-      const topt = (x0, w, colW) => ({ x: x0, y: 3.25, w, colW, rowH: 0.19, fontFace: FONT, fontSize: 7, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+      const topt = (x0, w, colW) => ({ x: x0, y: 3.25, w, colW, rowH: 0.18, fontFace: FONT, fontSize: 7, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
       T(s2, '이 부품이 들어가는 제품 (상위 8)', 0.5, 3.05, 4.4, 0.2, { fontSize: 8.5, bold: true });
       const par = u.parents.slice(0, 8);
-      if (par.length) s2.addTable([th(['제품코드', '제품명', '개당 소요', '12개월 소요량'], ['left', 'left', 'right', 'right']), ...par.map(q => [q.code, q.name, String(+q.ratio.toFixed(3)), Math.round(q.qty12).toLocaleString()].map((v, k) => ({ text: v, options: { align: k > 1 ? 'right' : 'left' } })))], topt(0.5, 4.4, [1.05, 2.05, 0.55, 0.75]));
+      if (par.length) s2.addTable([th(['제품코드', '제품명', '소요', '12개월'], ['left', 'left', 'right', 'right']), ...par.map(q => [cut(q.code, 17), cut(q.name, 26), String(+q.ratio.toFixed(3)), Math.round(q.qty12).toLocaleString()].map((v, k) => ({ text: v, options: { align: k > 1 ? 'right' : 'left' } })))], topt(0.5, 4.4, [1.3, 2.05, 0.4, 0.65]));
       else T(s2, 'BOM에 상위 제품이 없습니다.', 0.5, 3.3, 4.4, 0.2, { fontSize: 7.5, color: C.soft });
       T(s2, '최근 매입 이력', 5.1, 3.05, 4.4, 0.2, { fontSize: 8.5, bold: true });
       const buys = (r.it && r.it.buys || []).slice(0, 8);
-      if (buys.length) s2.addTable([th(['일자', '구매처', '입고 회사', '수량', '단가'], ['left', 'left', 'left', 'right', 'right']), ...buys.map(b => [b.date, b.sup || '(구매처 없음 · 계산 제외)', b.co || '–', b.qty.toLocaleString(), won(b.price)].map((v, k) => ({ text: v, options: { align: k > 2 ? 'right' : 'left', color: b.sup ? C.ink : C.mut } })))], topt(5.1, 4.4, [0.85, 1.35, 0.75, 0.65, 0.8]));
+      if (buys.length) s2.addTable([th(['일자', '구매처', '입고', '수량', '단가'], ['left', 'left', 'left', 'right', 'right']), ...buys.map(b => [b.date, cut(b.sup || '(구매처 없음 · 계산 제외)', 18), b.co || '–', b.qty.toLocaleString(), won(b.price)].map((v, k) => ({ text: v, options: { align: k > 2 ? 'right' : 'left', color: b.sup ? C.ink : C.mut } })))], topt(5.1, 4.4, [0.85, 1.35, 0.75, 0.65, 0.8]));
       else T(s2, '구매 이력이 없습니다.', 5.1, 3.3, 4.4, 0.2, { fontSize: 7.5, color: C.soft });
       T(s2, `자체 판매 12개월 ${Math.round(u.own12).toLocaleString()}개 · BOM 포함 ${Math.round(u.total12).toLocaleString()}개${r.it && r.it.buy12 ? ` · 구매 12개월 ${Math.round(r.it.buy12.qty).toLocaleString()}개` : ''}  →  검토에 쓴 연간 사용량 ${isFinite(r.qty) ? Math.round(r.qty).toLocaleString() + '개 (' + r.qtySrc + ')' : '–'}`, 0.5, 5.0, 9, 0.2, { fontSize: 8, bold: true, color: C.teal });
     });
