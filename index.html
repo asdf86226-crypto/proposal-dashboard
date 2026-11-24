@@ -1,0 +1,1281 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>제품 제안 대시보드</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+:root{
+  --ink:#1F2A33; --ink-soft:#5B6770; --muted:#8A949B; --line:#DDE3E7; --bg:#F2F5F7; --panel:#FFFFFF;
+  --teal:#0E9AA7; --teal-soft:#E6F5F6; --steel:#4E6A7A; --gray:#A9B6BF; --red:#C8553D; --red-soft:#FBEDEA;
+  --input:#FFFFFF; --blue-in:#1d4ed8;
+  --hdr:#1F2A33; --hdr-fg:#FFFFFF; --hdr-mut:#C9D3D9; --hdr-k:#7FD3DA;
+  --th:#1F2A33; --row:#EEF1F3; --chip:#EEF1F3; --edge:#C9D3D9; --teal-edge:#B7E3E7; --red-edge:#F1C9BF;
+  --solid:#1F2A33; --on-solid:#FFFFFF; --bar-out:#C9D3D9; --bar-own-out:#A9DDE2; --shadow:rgba(16,24,32,.18);
+  --sans:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Pretendard",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ink:#E4EAEE; --ink-soft:#A7B4BC; --muted:#7E8A92; --line:#2D3A44; --bg:#10171C; --panel:#18222A;
+  --teal:#2DB6C2; --teal-soft:#123438; --steel:#7E9AAA; --gray:#5E6B74; --red:#E58069; --red-soft:#3A231E;
+  --input:#0F161B; --blue-in:#8DB8FF;
+  --hdr:#0A1014; --hdr-fg:#FFFFFF; --hdr-mut:#AAB6BE; --hdr-k:#7FD3DA;
+  --th:#26333C; --row:#222D35; --chip:#24313A; --edge:#3A4852; --teal-edge:#1F5A60; --red-edge:#6B3A30;
+  --solid:#E4EAEE; --on-solid:#10171C; --bar-out:#3A4852; --bar-own-out:#1F5A60; --shadow:rgba(0,0,0,.5); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --ink:#E4EAEE; --ink-soft:#A7B4BC; --muted:#7E8A92; --line:#2D3A44; --bg:#10171C; --panel:#18222A;
+  --teal:#2DB6C2; --teal-soft:#123438; --steel:#7E9AAA; --gray:#5E6B74; --red:#E58069; --red-soft:#3A231E;
+  --input:#0F161B; --blue-in:#8DB8FF;
+  --hdr:#0A1014; --hdr-fg:#FFFFFF; --hdr-mut:#AAB6BE; --hdr-k:#7FD3DA;
+  --th:#26333C; --row:#222D35; --chip:#24313A; --edge:#3A4852; --teal-edge:#1F5A60; --red-edge:#6B3A30;
+  --solid:#E4EAEE; --on-solid:#10171C; --bar-out:#3A4852; --bar-own-out:#1F5A60; --shadow:rgba(0,0,0,.5); color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans)}
+header{background:var(--hdr);color:var(--hdr-fg);margin-top:calc(-1 * env(safe-area-inset-top, 0px));padding-top:calc(env(safe-area-inset-top, 0px) + 14px);padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand .k{color:var(--hdr-k);font-size:11px;font-weight:700;letter-spacing:.12em}
+.brand h1{margin:0;font-size:20px}
+.brand .meta{margin-left:auto;color:var(--hdr-mut);font-size:12px}
+nav{display:flex;gap:2px;margin-top:12px;overflow-x:auto}
+nav button{background:transparent;border:0;color:var(--hdr-mut);padding:10px 16px;font:600 14px var(--sans);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+nav button.on{color:var(--hdr-fg);border-bottom-color:var(--teal)}
+main{max-width:1320px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.tab{display:none}.tab.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.card h2{margin:0 0 4px;font-size:16px}
+.card h3{margin:14px 0 6px;font-size:14px}
+.hint{color:var(--ink-soft);font-size:12.5px;margin:0 0 10px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld label{font-size:12px;color:var(--ink-soft);font-weight:600}
+input,select,textarea{font:13px var(--sans);color:var(--blue-in);background:var(--input);border:1px solid var(--edge);border-radius:6px;padding:6px 8px;min-width:0}
+textarea{width:100%;min-height:64px;resize:vertical;color:var(--ink)}
+input[type=number]{text-align:right}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--teal);outline-offset:-1px;border-color:var(--teal)}
+button.b{font:600 13px var(--sans);border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px;cursor:pointer;white-space:nowrap}
+button.b:hover{border-color:var(--teal)}
+button.p{background:var(--teal);border-color:var(--teal);color:var(--on-solid)}
+button.d{background:var(--solid);border-color:var(--solid);color:var(--on-solid)}
+button.x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px}
+button.x:hover{color:var(--red)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:var(--th);color:#FFFFFF;font-weight:600;padding:7px 8px;text-align:center;white-space:nowrap;font-size:12px}
+td{border-bottom:1px solid var(--row);padding:5px 6px;white-space:nowrap}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+td.c{text-align:center}
+tr.sel td{background:var(--teal-soft)}
+td input{width:100%}
+.strong{font-weight:700}.teal{color:var(--teal)}.red{color:var(--red)}.mut{color:var(--muted)}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:700;background:var(--teal-soft);color:var(--teal)}
+.pill.r{background:var(--red-soft);color:var(--red)}.pill.g{background:var(--chip);color:var(--ink-soft)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--panel)}
+.kpi .l{font-size:12px;color:var(--ink-soft)}
+.kpi .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--muted)}
+.kpi.hl{background:var(--teal-soft);border-color:var(--teal-edge)}
+.kpi.bad{background:var(--red-soft);border-color:var(--red-edge)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.split{display:grid;grid-template-columns:280px minmax(0,1fr);gap:16px}
+.split>*{min-width:0}
+.slot .row>.fld{flex:1 1 110px}
+@media (max-width:860px){.grid2,.grid3,.split{grid-template-columns:1fr}}
+.list{display:flex;flex-direction:column;gap:6px}
+.li{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;background:var(--panel)}
+.li.on{border-color:var(--teal);background:var(--teal-soft)}
+.li .t{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details.sec{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:var(--panel)}
+details.sec>summary{cursor:pointer;padding:10px 14px;font-weight:700;list-style:none;display:flex;gap:8px;align-items:center}
+details.sec>summary::before{content:"▸";color:var(--teal)}
+details.sec[open]>summary::before{content:"▾"}
+details.sec>summary .pill{margin-left:auto}
+details.sec .in{padding:4px 14px 14px}
+.slot{border:1px dashed var(--edge);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.imgbox{display:flex;gap:8px;align-items:center}
+.imgbox img{width:56px;height:56px;object-fit:contain;border:1px solid var(--line);border-radius:6px;background:#FFFFFF}
+.imgbox .ph{width:56px;height:56px;border:1px dashed var(--edge);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--solid);color:var(--on-solid);padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99;max-width:90vw}
+.toast.on{opacity:1}
+dialog{border:0;border-radius:12px;padding:0;max-width:560px;width:92vw;box-shadow:0 20px 60px var(--shadow);background:var(--panel);color:var(--ink)}
+dialog .hd{background:var(--hdr);color:var(--hdr-fg);padding:12px 18px;font-weight:700}
+dialog .bd{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+dialog .ft{padding:12px 18px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line)}
+.ladder{display:flex;gap:6px;flex-wrap:wrap}
+.ladder div{border:1px solid var(--line);border-radius:6px;padding:6px 10px;text-align:center;min-width:92px;background:var(--panel)}
+.ladder div.on{border-color:var(--teal);background:var(--teal-soft)}
+.ladder b{display:block;font-size:15px}
+.ladder span{font-size:11.5px;color:var(--ink-soft)}
+.status{font-size:12.5px;color:var(--ink-soft)}
+.status b{color:var(--ink)}
+.drop{border:2px dashed var(--edge);border-radius:10px;padding:18px;text-align:center;color:var(--ink-soft);background:var(--panel)}
+.drop.over{border-color:var(--teal);background:var(--teal-soft)}
+.sugg{position:absolute;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 24px var(--shadow);max-height:260px;overflow:auto;min-width:320px}
+.sugg div{padding:5px 10px;cursor:pointer;font-size:12.5px;white-space:nowrap}
+.sugg div:hover,.sugg div.on{background:var(--teal-soft)}
+svg text{font-family:var(--sans)}
+.steps{margin:6px 0 0;padding-left:20px;font-size:13px}
+.steps li{margin:3px 0}
+code{background:var(--chip);border-radius:4px;padding:0 4px;font-size:12px}
+pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="k">TAESUNG · FONTANA</span>
+    <h1>제품 제안 대시보드</h1>
+    <span class="meta" id="hdrMeta"></span>
+  </div>
+  <nav id="nav">
+    <button data-t="price" class="on">판매가 산출</button>
+    <button data-t="sub">부품 대체</button>
+    <button data-t="prop">신규 제안서</button>
+    <button data-t="data">데이터 · 설정</button>
+  </nav>
+</header>
+<main>
+
+<!-- ============ 판매가 산출 ============ -->
+<section class="tab on" id="t-price">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <h2>판매가 산출 — 대리점가 · 소비자가</h2>
+        <p class="hint" id="priceFlow"></p>
+      </div>
+      <div class="row">
+        <button class="b" id="priceAdd">+ 품목 추가</button>
+        <button class="b" id="pricePaste">엑셀에서 붙여넣기</button>
+        <button class="b p" id="pricePpt">유통가 보고 PPT</button>
+        <button class="b d" id="priceTeams">팀즈로 보내기</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table id="priceTbl"></table>
+    </div>
+    <p class="hint" style="margin-top:8px">파란 글씨 칸만 입력합니다. 품목코드를 넣으면 이카운트 품명과 최근 매입단가를 불러옵니다(데이터 · 설정 탭에서 MMS 파일을 연결한 경우). 판관비율 · 영업이익률 칸을 비우면 기본값이 적용되고, 대리점가 칸에 값을 넣으면 계산값 대신 그 값을 씁니다. 금액은 모두 부가세 별도입니다.</p>
+  </div>
+  <div class="card" id="ladderCard">
+    <h2>영업이익률별 대리점가 — <span id="ladderName"></span></h2>
+    <p class="hint">대리점가는 제안하는 최저가입니다. 영업팀은 이 표에서 이익률을 올리거나(더 비싸게) 내려서(더 싸게) 단가를 정하면 됩니다. 표 위 행을 누르면 그 품목으로 바뀝니다.</p>
+    <div class="ladder" id="ladder"></div>
+  </div>
+</section>
+
+<!-- ============ 부품 대체 ============ -->
+<section class="tab" id="t-sub">
+  <div class="split">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>검토 목록</h2><button class="b" id="subNew">+ 새 검토</button></div>
+      <div class="list" id="subList"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="b p" id="subPpt">PPT 만들기</button>
+        <button class="b d" id="subTeams">팀즈로 보내기</button>
+      </div>
+      <p class="hint" style="margin-top:6px">체크한 검토를 한 파일로 묶습니다. 체크가 없으면 선택한 검토만 만듭니다.</p>
+    </div>
+    <div id="subEdit"></div>
+  </div>
+</section>
+
+<!-- ============ 신규 제안서 ============ -->
+<section class="tab" id="t-prop">
+  <div class="split">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>제안서</h2><button class="b" id="propNew">+ 새 제안서</button></div>
+      <div class="list" id="propList"></div>
+      <div class="row" style="margin-top:12px;flex-direction:column;align-items:stretch">
+        <button class="b p" id="propPpt">PPT 만들기</button>
+        <button class="b d" id="propTeams">팀즈로 보내기</button>
+        <button class="b" id="propDup">복제</button>
+      </div>
+      <div id="propOutline" style="margin-top:14px"></div>
+    </div>
+    <div id="propEdit"></div>
+  </div>
+</section>
+
+<!-- ============ 데이터 · 설정 ============ -->
+<section class="tab" id="t-data">
+  <div class="card">
+    <h2>이카운트 데이터 (쉐어포인트 MMS)</h2>
+    <p class="hint">쉐어포인트 TADC 사이트 → 문서 → MMS → 태성정밀(또는 플로우텍) 폴더의 아래 세 파일을 한 번에 골라 넣으세요. 내 PC 탐색기의 'OneDrive - 태성정밀(주)' 바로가기에서 고르면 됩니다. 파일 종류는 머리글을 보고 알아서 구분합니다.</p>
+    <ul class="steps">
+      <li><code>구매현황_전체\구매현황_전체_최신.xlsx</code> — 최근 매입단가 · 구매수량</li>
+      <li><code>판매현황_전체\판매현황_전체_최신.xlsx</code> — 품목별 판매량 · 판매단가</li>
+      <li><code>BOM\BOM_최신.xlsx</code> — 부품이 들어가는 제품의 판매량을 부품 사용량으로 환산</li>
+    </ul>
+    <div class="drop" id="drop" style="margin-top:10px">여기에 파일을 끌어다 놓거나 <button class="b p" id="pickFiles">파일 고르기</button>
+      <input type="file" id="fileIn" accept=".xlsx,.xls" multiple hidden></div>
+    <div class="status" id="dataStatus" style="margin-top:10px"></div>
+    <div class="row" style="margin-top:10px">
+      <label class="fld" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="exInternal"> 판매량에서 그룹사 거래 제외</label>
+      <div class="fld"><label>그룹사 이름 (쉼표로 구분)</label><input id="internalNames" style="width:220px"></div>
+    </div>
+    <p class="hint" style="margin-top:6px">태성정밀 → 플로우텍처럼 회사끼리 넘긴 수량을 판매량에서 뺄지 정합니다. 플로우텍이 다시 외부에 파는 제품이면 빼지 않는 편이 실제 사용량에 가깝습니다.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>환율</h2>
+      <p class="hint">서울외국환중개 월평균 매매기준율. 매달 한 줄 추가하고 적용 연월을 고르세요.</p>
+      <div class="row">
+        <div class="fld"><label>적용 연월</label><select id="fxMonth"></select></div>
+        <div class="fld"><label>USD / 원</label><input type="number" id="fxUsd" step="0.01" style="width:110px"></div>
+        <div class="fld"><label>CNY / 원</label><input type="number" id="fxCny" step="0.01" style="width:110px"></div>
+      </div>
+      <h3>월평균 환율표</h3>
+      <textarea id="fxTable" style="min-height:120px;font-family:ui-monospace,Consolas,monospace;font-size:12px"></textarea>
+      <p class="hint">한 줄에 <code>연월, USD, CNY</code> 형식으로 적습니다. 예: <code>2026-11, 1340.20, 200.50</code></p>
+    </div>
+    <div class="card">
+      <h2>원가 · 이익 기준</h2>
+      <p class="hint">판매가 산출표(설정 시트)와 같은 값입니다.</p>
+      <div class="grid3">
+        <div class="fld"><label>수입 부대비용률 %</label><input type="number" id="costImport" step="0.1"></div>
+        <div class="fld"><label>에이전트 부대비용률 %</label><input type="number" id="costAgent" step="0.1"></div>
+        <div class="fld"><label>국내 부대비용률 %</label><input type="number" id="costDomestic" step="0.1"></div>
+        <div class="fld"><label>판관비율 %</label><input type="number" id="sga" step="0.1"></div>
+        <div class="fld"><label>목표 영업이익률 %</label><input type="number" id="op" step="0.1"></div>
+        <div class="fld"><label>소비자가 = 대리점가 ×</label><input type="number" id="consumerMult" step="0.1"></div>
+        <div class="fld"><label>계산 방식</label><select id="method"><option>매출 대비</option><option>원가 가산</option></select></div>
+        <div class="fld"><label>절상 단위(원)</label><select id="roundUnit"><option value="1">1 (반올림)</option><option value="10">10</option><option value="100">100</option><option value="1000">1000</option></select></div>
+        <div class="fld"><label>PPT 바닥글 (작성 부서)</label><input id="footerOrg"></div>
+      </div>
+      <p class="hint" style="margin-top:8px">매출 대비: 대리점가 = 매입원가 ÷ (1 − 판관비율 − 영업이익률). 원가 가산: 매입원가 × (1+판관비율) × (1+영업이익률).</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>팀즈 보내기 설정</h2>
+    <p class="hint"><b>링크(claude.ai)로 연 대시보드에서는 보안 정책상 자동 발송이 막혀 있어</b> 'PPT 저장 → 팀즈 채팅 열기' 방식으로 동작합니다. 자동 발송은 HTML 파일로 열었을 때만 됩니다.</p>
+    <p class="hint">파워오토메이트 흐름 주소를 넣으면 'PPT를 원드라이브에 저장 → 받는 사람에게 팀즈 채팅으로 링크 발송'까지 버튼 한 번으로 끝납니다. 비워 두면 PPT를 내려받고 팀즈 채팅 창을 열어 주므로, 파일을 끌어다 놓아 보내면 됩니다.</p>
+    <div class="row">
+      <div class="fld" style="flex:1;min-width:260px"><label>파워오토메이트 HTTP 주소</label><input id="paUrl" placeholder="https://prod-xx.koreacentral.logic.azure.com/workflows/..." style="width:100%"></div>
+      <div class="fld" style="flex:1;min-width:220px"><label>기본 받는 사람 (회사 메일, 쉼표로 구분)</label><input id="teamsTo" placeholder="sales1@tsbath.com, sales2@tsbath.com" style="width:100%"></div>
+      <button class="b" id="paTest">연결 시험</button>
+    </div>
+    <details class="sec" style="margin-top:12px"><summary>파워오토메이트 흐름 만드는 법</summary><div class="in">
+      <ol class="steps">
+        <li>make.powerautomate.com → <b>만들기 → 인스턴트 클라우드 흐름</b> → 트리거 <b>"HTTP 요청을 받은 경우"</b>. (프리미엄 커넥터입니다. 라이선스가 없으면 아래 '대안'을 쓰세요.)</li>
+        <li>요청 본문 JSON 스키마에 아래 내용을 붙여 넣습니다.
+<pre>{"type":"object","properties":{
+ "fileName":{"type":"string"},"fileContent":{"type":"string"},
+ "message":{"type":"string"},"recipients":{"type":"string"},
+ "title":{"type":"string"}}}</pre></li>
+        <li><b>OneDrive for Business → 파일 만들기</b>: 폴더 <code>/제품제안</code>, 파일 이름 <code>fileName</code>, 파일 콘텐츠 식 <code>base64ToBinary(triggerBody()?['fileContent'])</code></li>
+        <li><b>OneDrive for Business → 공유 링크 만들기</b>: 방금 만든 파일 ID, 링크 형식 '보기', 범위 '조직'</li>
+        <li><b>각각에 적용</b>: 식 <code>split(triggerBody()?['recipients'], ',')</code> → 안에 <b>Microsoft Teams → 채팅 또는 채널에 메시지 게시</b> (게시자 '흐름 봇', 게시 위치 '흐름 봇과 채팅', 받는 사람 <code>trim(item())</code>, 메시지에 <code>message</code>와 공유 링크)</li>
+        <li><b>응답</b> 동작을 추가해 상태 코드 200을 돌려줍니다. 저장하면 트리거에 생기는 HTTP 주소를 위 칸에 붙여 넣으세요.</li>
+      </ol>
+      <p class="hint"><b>대안 (프리미엄 없이):</b> 트리거를 "OneDrive for Business — 파일이 생성될 때"(폴더 <code>/제품제안</code>)로 바꾸고 3~5단계를 그대로 둡니다. 받는 사람은 영업팀 채널로 고정합니다. 대시보드에서 내려받은 PPT를 OneDrive의 제품제안 폴더에 저장하면 자동으로 팀즈에 올라갑니다.</p>
+    </div></details>
+  </div>
+
+  <div class="card">
+    <h2>저장 · 백업</h2>
+    <p class="hint">입력한 내용은 이 PC 브라우저에 자동 저장됩니다. 다른 PC로 옮기거나 백업하려면 파일로 내보내세요. (MMS 데이터는 내보내기에 포함되지 않습니다.)</p>
+    <div class="row">
+      <button class="b" id="expJson">내보내기 (.json)</button>
+      <button class="b" id="impJson">가져오기</button>
+      <input type="file" id="impFile" accept="application/json,.json" hidden>
+      <button class="b" id="resetAll" style="color:var(--red)">처음 상태로 초기화</button>
+    </div>
+  </div>
+</section>
+</main>
+
+<dialog id="dlgTeams">
+  <div class="hd">팀즈로 보내기</div>
+  <div class="bd">
+    <div class="fld"><label>파일</label><div id="tmFile" class="strong"></div></div>
+    <div class="fld"><label>받는 사람 (회사 메일, 쉼표로 구분)</label><input id="tmTo"></div>
+    <div class="fld"><label>메시지</label><textarea id="tmMsg" style="min-height:90px"></textarea></div>
+    <p class="hint" id="tmHow" style="margin:0"></p>
+  </div>
+  <div class="ft">
+    <button class="b" id="tmCancel">닫기</button>
+    <button class="b" id="tmDl">PPT만 내려받기</button>
+    <button class="b d" id="tmSend">보내기</button>
+  </div>
+</dialog>
+
+<dialog id="dlgPaste">
+  <div class="hd">엑셀에서 붙여넣기</div>
+  <div class="bd">
+    <p class="hint" style="margin:0">엑셀에서 아래 순서의 열을 복사해 붙여 넣으세요. 머리글 줄은 있어도 됩니다.<br><code>품목 | 품목코드 | 구분(수입/국내) | 통화(USD/CNY/KRW) | 단가 | 수량</code></p>
+    <textarea id="pasteArea" style="min-height:180px;font-family:ui-monospace,Consolas,monospace;font-size:12px"></textarea>
+  </div>
+  <div class="ft"><button class="b" id="pasteCancel">닫기</button><button class="b p" id="pasteOk">추가</button></div>
+</dialog>
+
+<dialog id="dlgAsk">
+  <div class="hd">확인</div>
+  <div class="bd"><p id="askMsg" style="margin:0"></p></div>
+  <div class="ft"><button class="b" id="askNo">취소</button><button class="b d" id="askOk">확인</button></div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+<div class="sugg" id="sugg" hidden></div>
+
+<script>
+/* ===================================================================
+   제품 제안 대시보드 — 태성정밀 개발기획팀
+   =================================================================== */
+const SAMPLE_IMGS = {};
+const PUBLIC_BUILD = true; // 공개용: 예시 숫자 · 사진 없이 빈 상태로 시작
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const uid = () => Math.random().toString(36).slice(2, 9);
+const num = v => { if (v === '' || v == null) return NaN; const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[, ₩원$]/g, '')); return isFinite(n) ? n : NaN; };
+const won = v => isFinite(v) ? Math.round(v).toLocaleString('ko-KR') : '–';
+const pct = (v, d = 1) => isFinite(v) ? (v * 100).toFixed(d) + '%' : '–';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function ask(msg, okLabel = '확인') {
+  return new Promise(res => { const d = $('#dlgAsk'); $('#askMsg').textContent = msg; $('#askOk').textContent = okLabel;
+    const done = v => { d.close(); $('#askOk').onclick = $('#askNo').onclick = null; res(v); };
+    $('#askOk').onclick = () => done(true); $('#askNo').onclick = () => done(false); d.oncancel = () => done(false); d.showModal(); });
+}
+function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), ms); }
+
+/* ---------------- 저장소 (IndexedDB, 실패 시 메모리) ---------------- */
+const KV = (() => {
+  let dbp = null; const mem = {};
+  function open() {
+    if (dbp) return dbp;
+    dbp = new Promise((res) => {
+      try {
+        const r = indexedDB.open('ts-proposal-dash', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result); r.onerror = () => res(null);
+      } catch (e) { res(null); }
+    });
+    return dbp;
+  }
+  return {
+    async get(k) { const db = await open(); if (!db) return mem[k]; return new Promise(res => { try { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(mem[k]); } catch (e) { res(mem[k]); } }); },
+    async set(k, v) { mem[k] = v; const db = await open(); if (!db) return; return new Promise(res => { try { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => res(); } catch (e) { res(); } }); }
+  };
+})();
+
+/* ---------------- 기본 설정 · 예시 데이터 ---------------- */
+const FX_DEFAULT = `2025-09, 1391.83, 195.36
+2025-10, 1423.36, 199.82
+2025-11, 1457.77, 205.04
+2025-12, 1467.40, 208.26
+2026-01, 1456.51, 209.08
+2026-02, 1449.32, 209.73
+2026-03, 1486.64, 215.65
+2026-04, 1487.39, 217.41
+2026-05, 1490.11, 219.11
+2026-06, 1527.30, 225.51
+2026-07, 1497.43, 220.94
+2026-08, 1406.30, 208.69
+2026-09, 1359.00, 202.60
+2026-10, 1337.66, 200.02`;
+
+function defaultSettings() {
+  return {
+    fxTable: FX_DEFAULT, fxMonth: '2026-10', fxUsd: 1337.66, fxCny: 200.02,
+    costImport: 10, costAgent: 0, costDomestic: 0, sga: 8.7, op: 20, consumerMult: 2,
+    method: '매출 대비', roundUnit: 100, footerOrg: '태성정밀 개발기획팀 → 영업팀',
+    exInternal: false, internalNames: '플로우텍, 태성정밀', paUrl: '', teamsTo: ''
+  };
+}
+function samplePriceRows() { return null; }
+function newSub() {
+  return { id: uid(), title: '새 부품 대체 검토', oldCode: '', oldName: '', oldPrice: '', oldSupplier: '',
+    newSupplier: '', newDiv: '국내', newCur: 'KRW', newPrice: '', mold: '', other: '',
+    qtyMode: 'bom', qtyManual: '', sellPrice: '', note: '', pick: false };
+}
+function sampleSub() { return null; }
+function emptyProposal() {
+  return {
+    id: uid(), title: '새 제안서', kicker: 'SALES PROPOSAL', coverTitle: '', subtitle: '', from: '개발기획팀 → 영업팀', date: '', baseDate: '', coverImg: '',
+    summary: { why: '', what: '', cost: '', price: '', review: '' },
+    bg: { on: true, curLabel: '현행 제품', curCode: '', rows: '', nextTitle: '후속 제품 준비 방향', next: [{ t: '', d: '' }, { t: '', d: '' }, { t: '', d: '' }] },
+    market: { on: true, title: '', items: '', notes: [{ t: '', d: '' }, { t: '', d: '' }, { t: '', d: '' }], source: '' },
+    comps: { on: true, title: '', items: [] },
+    lineup: { on: true, title: '', models: [{ tag: '', code: '', name: '', bullets: '', img: '' }, { tag: '', code: '', name: '', bullets: '', img: '' }, { tag: '', code: '', name: '', bullets: '', img: '' }], note: '' },
+    sets: { on: true, title: '', parts: [{ name: '', desc: '', img: '' }, { name: '', desc: '', img: '' }, { name: '', desc: '', img: '' }, { name: '', desc: '', img: '' }], options: [{ tag: '', badge: '', name: '', desc: '', img: '' }, { tag: '', badge: '', name: '', desc: '', img: '' }, { tag: '', badge: '', name: '', desc: '', img: '' }] },
+    cost: { on: true, title: '', mode: 'USD', models: '', finishes: '크롬, 니켈, 건그레이', setNames: '', m: {}, note: '' },
+    pricing: { on: true, title: '', baseModel: '', compare: {}, points: '' },
+    points: { on: true, title: '영업 포인트 : 고객에게 이렇게 설명하세요', items: Array.from({ length: 6 }, () => ({ t: '', d: '' })) },
+    review: { on: true, leftTitle: '공급사 · 제품 확인', left: '', rightTitle: '판매 조건 검토', right: '' }
+  };
+}
+function sampleProposal() { return null; }
+/* ---------------- 상태 ---------------- */
+let S = null;          // 사용자 입력 (자동 저장)
+let D = null;          // MMS 집계 데이터
+let curSub = null, curProp = null, ladderRow = null;
+function freshState() {
+  if (PUBLIC_BUILD) { const p = emptyProposal(); p.date = `${new Date().getFullYear()}. ${new Date().getMonth() + 1}`; const s = newSub();
+    return { v: 1, settings: defaultSettings(), priceRows: [{ id: uid(), name: '', code: '', div: '수입', cur: 'USD', price: '', qty: '', sga: '', op: '', final: '', pick: true }], subs: [s], props: [p], curSub: s.id, curProp: p.id }; }
+  const p = sampleProposal(); const s = sampleSub(); return { v: 1, settings: defaultSettings(), priceRows: samplePriceRows(), subs: [s], props: [p], curSub: s.id, curProp: p.id }; }
+let saveT = null;
+function save() { clearTimeout(saveT); saveT = setTimeout(() => KV.set('state', JSON.parse(JSON.stringify(S))), 400); }
+
+/* ---------------- 가격 계산 엔진 (판매가 산출표와 동일) ---------------- */
+const ST = () => S.settings;
+function fxOf(cur) { return cur === 'USD' ? num(ST().fxUsd) : cur === 'CNY' ? num(ST().fxCny) : 1; }
+function landedCost(div, cur, price) {
+  const p = num(price); if (!isFinite(p)) return NaN;
+  const s = ST();
+  if (cur === 'USD' || cur === 'CNY') return p * fxOf(cur) * (1 + (div === '수입' ? num(s.costImport) : num(s.costDomestic)) / 100);
+  return p * (1 + (div === '수입' ? num(s.costAgent) : num(s.costDomestic)) / 100);
+}
+function roundUp(v) { const u = num(ST().roundUnit) || 1; return u <= 1 ? Math.round(v) : Math.ceil(v / u - 1e-9) * u; }
+function priceOf(cost, sgaPct, opPct) {
+  const s = ST(); const sg = (isFinite(num(sgaPct)) ? num(sgaPct) : num(s.sga)) / 100; const op = (isFinite(num(opPct)) ? num(opPct) : num(s.op)) / 100;
+  if (!isFinite(cost)) return {};
+  let bep, base;
+  if (s.method === '원가 가산') { bep = cost * (1 + sg); base = roundUp(bep * (1 + op)); }
+  else { bep = cost / (1 - sg); base = (1 - sg - op) > 0 ? roundUp(cost / (1 - sg - op)) : NaN; }
+  return { bep, base, sg, op };
+}
+function resultOf(cost, price, sg) {
+  const s = ST();
+  const sgaAmt = s.method === '원가 가산' ? cost * sg : price * sg;
+  const opAmt = price - cost - sgaAmt;
+  return { sgaAmt, opAmt, opRate: opAmt / price, consumer: roundUp(price * num(s.consumerMult)) };
+}
+function priceRowCalc(r) {
+  const cost = landedCost(r.div, r.cur, r.price);
+  const pr = priceOf(cost, r.sga, r.op);
+  const fin = isFinite(num(r.final)) ? num(r.final) : pr.base;
+  const rs = isFinite(fin) ? resultOf(cost, fin, pr.sg) : {};
+  return { cost, bep: pr.bep, base: pr.base, final: fin, ...rs, below: fin < pr.bep };
+}
+
+/* ---------------- 탭 ---------------- */
+$('#nav').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $$('#nav button').forEach(x => x.classList.toggle('on', x === b));
+  $$('.tab').forEach(t => t.classList.toggle('on', t.id === 't-' + b.dataset.t));
+  if (b.dataset.t === 'sub') renderSub(); if (b.dataset.t === 'prop') renderProp();
+});
+
+/* =================== 판매가 산출 탭 =================== */
+function renderPriceFlow() {
+  const s = ST();
+  $('#priceFlow').textContent = `매입원가 → 판관비 ${s.sga}% → BEP → 영업이익 ${s.op}% → 대리점가(최종 유통가, ${num(s.roundUnit) > 1 ? s.roundUnit + '원 올림' : '반올림'}) → 소비자가 = 대리점가 × ${s.consumerMult}  ·  ${s.method} 방식  ·  ${s.fxMonth} USD ${num(s.fxUsd).toFixed(2)} / CNY ${num(s.fxCny).toFixed(2)}  ·  부대비용 수입 ${s.costImport}% · 에이전트 ${s.costAgent}% · 국내 ${s.costDomestic}%`;
+}
+function renderPrice() {
+  renderPriceFlow();
+  const rows = S.priceRows;
+  let h = `<thead><tr><th>보고</th><th>품목</th><th>품목코드</th><th>구분</th><th>통화</th><th>단가</th><th>수량</th><th>매입원가/개</th><th>판관비율%</th><th>영업이익률%</th><th>BEP</th><th>대리점가<br><span style="font-weight:400">직접 입력</span></th><th>대리점가<br>(최종 유통가)</th><th>소비자가</th><th>영업이익/개</th><th>영업이익률</th><th>영업이익 합계</th><th></th></tr></thead><tbody>`;
+  let sumSales = 0, sumOp = 0, sumQty = 0;
+  rows.forEach(r => {
+    const c = priceRowCalc(r); const q = num(r.qty) || 0;
+    if (isFinite(c.final)) { sumSales += c.final * q; sumOp += c.opAmt * q; sumQty += q; }
+    h += `<tr data-id="${r.id}" class="${ladderRow === r.id ? 'sel' : ''}">
+      <td class="c"><input type="checkbox" data-k="pick" ${r.pick ? 'checked' : ''}></td>
+      <td><input data-k="name" value="${esc(r.name)}" style="min-width:110px"></td>
+      <td><input data-k="code" value="${esc(r.code)}" style="min-width:110px" data-codesearch="1"></td>
+      <td><select data-k="div"><option ${r.div === '수입' ? 'selected' : ''}>수입</option><option ${r.div === '국내' ? 'selected' : ''}>국내</option></select></td>
+      <td><select data-k="cur">${['USD', 'CNY', 'KRW'].map(x => `<option ${r.cur === x ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
+      <td><input type="number" step="any" data-k="price" value="${esc(r.price)}" style="width:86px"></td>
+      <td><input type="number" data-k="qty" value="${esc(r.qty)}" style="width:66px"></td>
+      <td class="n">${won(c.cost)}</td>
+      <td><input type="number" step="any" data-k="sga" value="${esc(r.sga)}" placeholder="${ST().sga}" style="width:58px"></td>
+      <td><input type="number" step="any" data-k="op" value="${esc(r.op)}" placeholder="${ST().op}" style="width:58px"></td>
+      <td class="n">${won(c.bep)}</td>
+      <td><input type="number" data-k="final" value="${esc(r.final)}" placeholder="${isFinite(c.base) ? c.base : ''}" style="width:86px;${c.below ? 'background:#FBEDEA' : ''}"></td>
+      <td class="n strong teal">${won(c.final)}</td>
+      <td class="n strong">${won(c.consumer)}</td>
+      <td class="n">${won(c.opAmt)}</td>
+      <td class="n ${c.opRate < 0 ? 'red' : ''}">${pct(c.opRate)}</td>
+      <td class="n">${won(c.opAmt * q)}</td>
+      <td><button class="x" data-del="1" title="삭제">×</button></td></tr>`;
+  });
+  h += `</tbody><tfoot><tr><td colspan="6" class="strong" style="padding:8px">합계</td><td class="n strong">${sumQty.toLocaleString()}</td><td colspan="5"></td><td class="n mut">매출 ${won(sumSales)}</td><td></td><td></td><td class="n strong">${pct(sumOp / sumSales)}</td><td class="n strong">${won(sumOp)}</td><td></td></tr></tfoot>`;
+  $('#priceTbl').innerHTML = h;
+  renderLadder();
+}
+function renderLadder() {
+  const r = S.priceRows.find(x => x.id === ladderRow) || S.priceRows[0];
+  if (!r) { $('#ladderCard').hidden = true; return; } $('#ladderCard').hidden = false;
+  ladderRow = r.id;
+  const c = priceRowCalc(r);
+  $('#ladderName').textContent = `${r.name} ${r.code}  ·  매입원가 ${won(c.cost)}원 · BEP ${won(c.bep)}원`;
+  const base = isFinite(num(r.op)) ? num(r.op) : num(ST().op);
+  const steps = [...new Set([0, 5, 10, 15, base, 25, 30, 35].map(x => Math.round(x * 10) / 10))].sort((a, b) => a - b);
+  $('#ladder').innerHTML = steps.map(op => {
+    const p = priceOf(c.cost, r.sga, op);
+    return `<div class="${op === base ? 'on' : ''}"><span>영업이익 ${op}%</span><b>${won(p.base)}</b><span>소비자가 ${won(roundUp(p.base * num(ST().consumerMult)))}</span></div>`;
+  }).join('');
+}
+$('#priceTbl').addEventListener('input', e => {
+  const tr = e.target.closest('tr[data-id]'); if (!tr) return; const k = e.target.dataset.k; if (!k) return;
+  const r = S.priceRows.find(x => x.id === tr.dataset.id);
+  r[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; save();
+  if (k === 'code' || k === 'name') return; // 다시 그리면 커서가 사라지므로 blur 때 처리
+  rerenderPriceKeepFocus(e.target);
+});
+$('#priceTbl').addEventListener('change', e => {
+  const tr = e.target.closest('tr[data-id]'); if (!tr) return; const k = e.target.dataset.k;
+  if (k === 'code') { const r = S.priceRows.find(x => x.id === tr.dataset.id); fillPriceFromERP(r, false); }
+  renderPrice();
+});
+$('#priceTbl').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-id]'); if (!tr) return;
+  if (e.target.dataset.del) { S.priceRows = S.priceRows.filter(x => x.id !== tr.dataset.id); save(); renderPrice(); return; }
+  if (ladderRow !== tr.dataset.id) { ladderRow = tr.dataset.id; $$('#priceTbl tr').forEach(x => x.classList.toggle('sel', x === tr)); renderLadder(); }
+});
+function rerenderPriceKeepFocus(el) {
+  const id = el.closest('tr').dataset.id, k = el.dataset.k, pos = el.selectionStart;
+  renderPrice();
+  const n = $(`#priceTbl tr[data-id="${id}"] [data-k="${k}"]`); if (n) { n.focus(); try { if (pos != null) n.setSelectionRange(pos, pos); } catch (e) { } }
+}
+function fillPriceFromERP(r, force) {
+  const it = itemOf(r.code); if (!it) return;
+  if (!r.name || force) r.name = it.name;
+  if (it.lastBuy && (!isFinite(num(r.price)) || force)) { r.cur = 'KRW'; r.div = '국내'; r.price = Math.round(it.lastBuy.price * 100) / 100; toast(`${r.code}: 최근 매입단가 ${won(it.lastBuy.price)}원 (${it.lastBuy.date}, ${it.lastBuy.sup})`); }
+  save();
+}
+$('#priceAdd').onclick = () => { S.priceRows.push({ id: uid(), name: '', code: '', div: '수입', cur: 'USD', price: '', qty: '', sga: '', op: '', final: '', pick: true }); save(); renderPrice(); };
+$('#pricePaste').onclick = () => { $('#pasteArea').value = ''; $('#dlgPaste').showModal(); };
+$('#pasteCancel').onclick = () => $('#dlgPaste').close();
+$('#pasteOk').onclick = () => {
+  const lines = $('#pasteArea').value.split(/\r?\n/).filter(l => l.trim());
+  let n = 0;
+  for (const l of lines) {
+    const c = l.split('\t'); if (c.length < 2) continue;
+    if (/품목|상품/.test(c[0]) && /코드/.test(c[1] || '')) continue;
+    const cur = (c[3] || 'KRW').trim().toUpperCase();
+    S.priceRows.push({ id: uid(), name: (c[0] || '').trim(), code: (c[1] || '').trim(), div: /국내/.test(c[2]) ? '국내' : '수입', cur: ['USD', 'CNY', 'KRW'].includes(cur) ? cur : 'KRW', price: num(c[4]) || '', qty: num(c[5]) || '', sga: '', op: '', final: '', pick: true }); n++;
+  }
+  save(); renderPrice(); $('#dlgPaste').close(); toast(`${n}개 품목을 추가했습니다`);
+};
+$('#pricePpt').onclick = async () => { const f = await buildPricePpt(); if (f) downloadBlob(f.blob, f.name); };
+$('#priceTeams').onclick = async () => { const f = await buildPricePpt(); if (f) openTeams(f, `[유통가 보고] ${f.title}\n대리점가(최종 유통가)는 제안 최저가입니다. 이익률을 올리거나 내려 단가를 정해 주세요.`); };
+
+/* =================== 품목코드 검색 =================== */
+let suggTarget = null, suggItems = [], suggIdx = -1;
+document.addEventListener('input', e => {
+  if (!e.target.dataset.codesearch || !D) return;
+  const q = e.target.value.trim().toLowerCase(); if (q.length < 2) { hideSugg(); return; }
+  const res = []; for (const [code, it] of Object.entries(D.items)) { if (code.toLowerCase().includes(q) || (it.name || '').toLowerCase().includes(q)) { res.push([code, it]); if (res.length >= 30) break; } }
+  if (!res.length) { hideSugg(); return; }
+  suggTarget = e.target; suggItems = res; suggIdx = -1;
+  const r = e.target.getBoundingClientRect(); const sg = $('#sugg');
+  sg.style.left = (r.left + scrollX) + 'px'; sg.style.top = (r.bottom + scrollY + 2) + 'px'; sg.hidden = false;
+  sg.innerHTML = res.map(([c, it], i) => `<div data-i="${i}"><b>${esc(c)}</b> · ${esc(it.name)} <span class="mut">${it.lastBuy ? '매입 ' + won(it.lastBuy.price) : ''}${it.sales12 ? ' · 12개월 판매 ' + it.sales12.toLocaleString() : ''}</span></div>`).join('');
+});
+document.addEventListener('keydown', e => {
+  if ($('#sugg').hidden || e.target !== suggTarget) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); suggIdx = Math.max(0, Math.min(suggItems.length - 1, suggIdx + (e.key === 'ArrowDown' ? 1 : -1))); $$('#sugg div').forEach((d, i) => d.classList.toggle('on', i === suggIdx)); }
+  else if (e.key === 'Enter' && suggIdx >= 0) { e.preventDefault(); pickSugg(suggIdx); }
+  else if (e.key === 'Escape') hideSugg();
+});
+$('#sugg').addEventListener('mousedown', e => { const d = e.target.closest('[data-i]'); if (d) { e.preventDefault(); pickSugg(+d.dataset.i); } });
+document.addEventListener('focusout', e => { if (e.target === suggTarget) setTimeout(hideSugg, 150); });
+function pickSugg(i) { const t = suggTarget; t.value = suggItems[i][0]; hideSugg(); t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true })); }
+function hideSugg() { $('#sugg').hidden = true; suggTarget = null; }
+document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.codesearch) hideSugg(); }, true);
+$('#nav').addEventListener('click', hideSugg);
+
+/* =================== MMS 데이터 읽기 =================== */
+function cellCode(v) { if (v == null) return ''; if (typeof v === 'number') return String(v); return String(v).trim(); }
+function cellDate(v) {
+  if (v instanceof Date) { const d = new Date(v.getTime() + 12 * 3600e3); return d.toISOString().slice(0, 10); }
+  if (typeof v === 'number') { const d = new Date(Math.round((v - 25569) * 864e5)); return d.toISOString().slice(0, 10); }
+  const s = String(v || '').trim().replace(/[./]/g, '-'); const m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : '';
+}
+function readSheet(buf) {
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+  let hi = rows.findIndex(r => r.some(c => /품목코드/.test(String(c))));
+  if (hi < 0) throw new Error('머리글(품목코드)을 찾지 못했습니다');
+  const head = rows[hi].map(c => String(c).trim());
+  const kind = head.includes('생산품목코드') ? 'bom' : head.includes('구매처명') ? 'buy' : (head.includes('판매처명') || head.includes('거래처명')) ? 'sell' : null;
+  if (!kind) throw new Error('구매현황 · 판매현황 · BOM 중 어느 파일인지 알 수 없습니다');
+  return { kind, head, rows: rows.slice(hi + 1) };
+}
+const col = (head, ...names) => { for (const n of names) { const i = head.indexOf(n); if (i >= 0) return i; } return -1; };
+function ym(d) { return d.slice(0, 7); }
+function addMonths(ymS, k) { let [y, m] = ymS.split('-').map(Number); m += k; while (m > 12) { m -= 12; y++; } while (m < 1) { m += 12; y--; } return `${y}-${String(m).padStart(2, '0')}`; }
+
+async function loadFiles(files) {
+  const raw = (await KV.get('raw')) || {};
+  const msgs = [];
+  for (const f of files) {
+    try {
+      const t = readSheet(await f.arrayBuffer());
+      raw[t.kind] = { name: f.name, mtime: f.lastModified ? new Date(f.lastModified).toLocaleString('ko-KR') : '', head: t.head, rows: t.rows };
+      msgs.push(`${f.name} → ${{ buy: '구매현황', sell: '판매현황', bom: 'BOM' }[t.kind]} ${t.rows.length.toLocaleString()}줄`);
+    } catch (err) { msgs.push(`${f.name}: ${err.message}`); }
+  }
+  await KV.set('raw', raw);
+  buildD(raw);
+  toast(msgs.join(' · '), 5000);
+  renderAll();
+}
+function buildD(raw) {
+  if (!raw || (!raw.buy && !raw.sell && !raw.bom)) { D = null; return; }
+  const items = {}; const it = c => items[c] || (items[c] = { name: '' });
+  const meta = {};
+  // 구매현황
+  if (raw.buy) {
+    const h = raw.buy.head, iD = col(h, '일자'), iC = col(h, '품목코드'), iN = col(h, '품명', '품목명'), iS = col(h, '구매처명'), iQ = col(h, '수량'), iP = col(h, '단가'), iA = col(h, '공급가액');
+    const buys = {}; let maxD = '';
+    for (const r of raw.buy.rows) {
+      const c = cellCode(r[iC]); if (!c) continue; const d = cellDate(r[iD]); if (d > maxD) maxD = d;
+      const q = num(r[iQ]) || 0, p = num(r[iP]), a = num(r[iA]);
+      it(c).name = it(c).name || String(r[iN] || '');
+      (buys[c] || (buys[c] = [])).push({ date: d, qty: q, price: isFinite(p) && p > 0 ? p : (q ? a / q : NaN), sup: String(r[iS] || ''), amt: isFinite(a) ? a : (p * q) });
+    }
+    const from = new Date(new Date(maxD).getTime() - 365 * 864e5).toISOString().slice(0, 10);
+    for (const [c, arr] of Object.entries(buys)) {
+      arr.sort((a, b) => b.date.localeCompare(a.date));
+      const valid = arr.filter(x => x.qty > 0 && isFinite(x.price) && x.price > 0);
+      const x = items[c]; x.buys = valid.slice(0, 8); x.lastBuy = valid[0] || null;
+      const y = valid.filter(v => v.date > from); x.buy12 = { qty: y.reduce((s, v) => s + v.qty, 0), amt: y.reduce((s, v) => s + v.amt, 0) };
+    }
+    meta.buyAsOf = maxD; meta.buyFile = raw.buy.mtime;
+  }
+  // 판매현황
+  const internal = ST().internalNames.split(',').map(s => s.trim()).filter(Boolean);
+  if (raw.sell) {
+    const h = raw.sell.head, iD = col(h, '일자'), iC = col(h, '품목코드'), iN = col(h, '품목명', '품명'), iS = col(h, '판매처명', '거래처명'), iQ = col(h, '수량'), iP = col(h, '단가'), iA = col(h, '공급가액');
+    let maxD = '';
+    for (const r of raw.sell.rows) { const d = cellDate(r[iD]); if (d > maxD) maxD = d; }
+    const endYm = addMonths(ym(maxD), -1), startYm = addMonths(endYm, -11), chartStart = addMonths(ym(maxD), -23);
+    for (const r of raw.sell.rows) {
+      const c = cellCode(r[iC]); if (!c) continue; const d = cellDate(r[iD]); if (!d) continue;
+      const q = num(r[iQ]) || 0, p = num(r[iP]), cust = String(r[iS] || ''); const isInt = internal.some(n => cust.includes(n));
+      const x = it(c); x.name = x.name || String(r[iN] || '');
+      const m = ym(d);
+      if (m >= chartStart) { x.mon = x.mon || {}; const v = x.mon[m] || (x.mon[m] = [0, 0]); v[0] += q; if (!isInt) v[1] += q; }
+      if (q > 0 && isFinite(p) && p > 0 && (!x.lastSell || d >= x.lastSell.date) && (!isInt || !x.lastSell)) x.lastSell = { date: d, price: p, cust, internal: isInt };
+    }
+    meta.sellAsOf = maxD; meta.sellFile = raw.sell.mtime; meta.win = [startYm, endYm]; meta.chartStart = chartStart;
+  }
+  // BOM
+  const parents = {};
+  if (raw.bom) {
+    const h = raw.bom.head, iP = col(h, '생산품목코드'), iPN = col(h, '생산품목명'), iV = col(h, 'BOM버전'), iC = col(h, '소모품목코드'), iCN = col(h, '소모품목명'), iQ = col(h, '생산수량'), iR = col(h, '소요량');
+    const byParent = {};
+    for (const r of raw.bom.rows) {
+      const p = cellCode(r[iP]), c = cellCode(r[iC]); if (!p || !c || p === c) continue;
+      const v = String(r[iV] || '기본'); const ratio = (num(r[iR]) || 0) / (num(r[iQ]) || 1);
+      it(p).name = it(p).name || String(r[iPN] || ''); it(c).name = it(c).name || String(r[iCN] || '');
+      ((byParent[p] || (byParent[p] = {}))[v] || (byParent[p][v] = [])).push([c, ratio]);
+    }
+    for (const [p, vers] of Object.entries(byParent)) {
+      const use = vers['기본'] || vers[Object.keys(vers)[0]];
+      const agg = {}; for (const [c, r] of use) agg[c] = (agg[c] || 0) + r;
+      for (const [c, r] of Object.entries(agg)) (parents[c] || (parents[c] = [])).push([p, r]);
+    }
+    meta.bomFile = raw.bom.mtime; meta.bomCount = Object.keys(byParent).length;
+  }
+  D = { items, parents, meta, files: Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, v.name])) };
+  // 12개월 판매량 (검색 표시용)
+  if (meta.win) for (const x of Object.values(items)) if (x.mon) x.sales12 = monthsRange(meta.win[0], meta.win[1]).reduce((s, m) => s + ((x.mon[m] || [0, 0])[ST().exInternal ? 1 : 0]), 0);
+}
+function monthsRange(a, b) { const out = []; let m = a; while (m <= b) { out.push(m); m = addMonths(m, 1); } return out; }
+function itemOf(code) { return D && code ? D.items[String(code).trim()] : null; }
+
+/* 사용량 = 자체 판매 + (상위 제품 사용량 × 소요량), BOM을 따라 끝까지 올라감 */
+function usageSeries(code) {
+  if (!D || !D.meta.chartStart) return null;
+  const months = monthsRange(D.meta.chartStart, ym(D.meta.sellAsOf)); const k = ST().exInternal ? 1 : 0;
+  const memo = {};
+  function rec(c, stack) {
+    if (memo[c]) return memo[c];
+    const x = D.items[c]; const own = months.map(m => x && x.mon && x.mon[m] ? x.mon[m][k] : 0);
+    const total = own.slice();
+    if (!stack.has(c) && stack.size < 12) {
+      stack.add(c);
+      for (const [p, r] of (D.parents[c] || [])) { const ps = rec(p, stack).total; for (let i = 0; i < months.length; i++) total[i] += ps[i] * r; }
+      stack.delete(c);
+    }
+    return (memo[c] = { own, total });
+  }
+  const me = rec(code, new Set());
+  const parentsContrib = (D.parents[code] || []).map(([p, r]) => {
+    const ps = memo[p].total; const w = monthsRange(D.meta.win[0], D.meta.win[1]).map(m => months.indexOf(m));
+    return { code: p, name: (D.items[p] || {}).name || '', ratio: r, qty12: w.reduce((s, i) => s + ps[i] * r, 0) };
+  }).sort((a, b) => b.qty12 - a.qty12);
+  const w = monthsRange(D.meta.win[0], D.meta.win[1]).map(m => months.indexOf(m));
+  return { months, own: me.own, total: me.total, own12: w.reduce((s, i) => s + me.own[i], 0), total12: w.reduce((s, i) => s + me.total[i], 0), parents: parentsContrib };
+}
+
+/* =================== 부품 대체 탭 =================== */
+function subCalc(s) {
+  const it = itemOf(s.oldCode); const us = it || (D && D.parents[s.oldCode]) ? usageSeries(s.oldCode) : null;
+  const oldP = isFinite(num(s.oldPrice)) ? num(s.oldPrice) : (it && it.lastBuy ? it.lastBuy.price : NaN);
+  const newP = landedCost(s.newDiv, s.newCur, s.newPrice);
+  const invest = (num(s.mold) || 0) + (num(s.other) || 0);
+  let qty = NaN, qtySrc = '';
+  if (s.qtyMode === 'manual') { qty = num(s.qtyManual); qtySrc = '직접 입력'; }
+  else if (s.qtyMode === 'buy') { qty = it && it.buy12 ? it.buy12.qty : NaN; qtySrc = '최근 12개월 구매량'; }
+  else { qty = us ? us.total12 : NaN; qtySrc = '최근 12개월 판매 + BOM 소요량'; }
+  const sell = isFinite(num(s.sellPrice)) ? num(s.sellPrice) : (it && it.lastSell ? it.lastSell.price : NaN);
+  const save1 = oldP - newP; const annual = save1 * qty; const monthly = qty / 12;
+  const payQty = save1 > 0 ? invest / save1 : NaN; const payMon = save1 > 0 && monthly > 0 ? payQty / monthly : NaN;
+  const mBefore = isFinite(sell) ? (sell - oldP) / sell : NaN, mAfter = isFinite(sell) ? (sell - newP) / sell : NaN;
+  return { it, us, oldP, newP, invest, qty, qtySrc, sell, save1, annual, payQty, payMon, mBefore, mAfter, net3: annual * 3 - invest, saveRate: save1 / oldP };
+}
+function renderSubList() {
+  $('#subList').innerHTML = S.subs.map(s => `<div class="li ${s.id === S.curSub ? 'on' : ''}" data-id="${s.id}"><input type="checkbox" data-pick ${s.pick ? 'checked' : ''}><span class="t">${esc(s.title || s.oldName || '제목 없음')}</span><button class="x" data-del title="삭제">×</button></div>`).join('') || '<p class="hint">검토가 없습니다.</p>';
+}
+$('#subList').addEventListener('click', e => {
+  const li = e.target.closest('.li'); if (!li) return; const s = S.subs.find(x => x.id === li.dataset.id);
+  if (e.target.matches('[data-pick]')) { s.pick = e.target.checked; save(); return; }
+  if (e.target.matches('[data-del]')) { ask(`'${s.title}' 검토를 지울까요?`, '지우기').then(ok => { if (!ok) return; S.subs = S.subs.filter(x => x !== s); if (S.curSub === s.id) S.curSub = (S.subs[0] || {}).id; save(); renderSub(); }); return; }
+  S.curSub = s.id; save(); renderSub();
+});
+$('#subNew').onclick = () => { const s = newSub(); S.subs.unshift(s); S.curSub = s.id; save(); renderSub(); };
+function renderSub() {
+  renderSubList();
+  const s = S.subs.find(x => x.id === S.curSub);
+  if (!s) { $('#subEdit').innerHTML = '<div class="card"><p class="hint">왼쪽에서 + 새 검토를 누르세요.</p></div>'; return; }
+  const f = (k, label, attrs = '', w = '') => `<div class="fld" ${w ? `style="${w}"` : ''}><label>${label}</label><input data-k="${k}" value="${esc(s[k])}" ${attrs}></div>`;
+  $('#subEdit').innerHTML = `
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><h2>부품 대체 검토</h2><span class="status" id="subData"></span></div>
+    <div class="row" style="margin-top:8px">${f('title', '검토 제목', '', 'flex:1;min-width:280px')}</div>
+    <div class="grid2" style="margin-top:12px">
+      <div class="slot"><b>기존 부품</b>
+        <div class="row">${f('oldCode', '품목코드', 'data-codesearch="1"', 'width:150px')}${f('oldName', '품명', '', 'flex:1')}</div>
+        <div class="row">${f('oldPrice', '현재 매입단가 (원)', 'type="number" step="any"', 'width:150px')}${f('oldSupplier', '현재 공급처', '', 'flex:1')}</div>
+        <div id="subOldInfo" class="status"></div>
+      </div>
+      <div class="slot"><b>신규 (대체) 부품</b>
+        <div class="row">${f('newSupplier', '신규 공급처', '', 'flex:1')}
+          <div class="fld"><label>구분</label><select data-k="newDiv"><option ${s.newDiv === '수입' ? 'selected' : ''}>수입</option><option ${s.newDiv === '국내' ? 'selected' : ''}>국내</option></select></div>
+          <div class="fld"><label>통화</label><select data-k="newCur">${['KRW', 'USD', 'CNY'].map(x => `<option ${s.newCur === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+          ${f('newPrice', '견적 단가', 'type="number" step="any"', 'width:110px')}</div>
+        <div class="row">${f('mold', '금형비 (원)', 'type="number"', 'width:150px')}${f('other', '기타 투자 (샘플·인증·지그, 원)', 'type="number"', 'width:200px')}</div>
+        <div id="subNewInfo" class="status"></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div class="fld"><label>연간 사용량 기준</label><select data-k="qtyMode">
+        <option value="bom" ${s.qtyMode === 'bom' ? 'selected' : ''}>판매 + BOM 소요량 (12개월)</option>
+        <option value="buy" ${s.qtyMode === 'buy' ? 'selected' : ''}>구매량 (12개월)</option>
+        <option value="manual" ${s.qtyMode === 'manual' ? 'selected' : ''}>직접 입력</option></select></div>
+      ${f('qtyManual', '연간 사용량 (직접 입력)', 'type="number"', 'width:170px')}
+      ${f('sellPrice', '판매단가 (이익률 계산용, 원)', 'type="number" step="any"', 'width:200px')}
+    </div>
+    <div class="fld" style="margin-top:10px"><label>메모 (PPT에 들어갑니다)</label><textarea data-k="note">${esc(s.note)}</textarea></div>
+  </div>
+  <div class="card"><h2>분석 결과</h2><div id="subRes"></div></div>
+  <div class="card" id="subUsageCard"><h2>사용량 근거</h2><div id="subUsage"></div></div>`;
+  renderSubResult();
+}
+$('#subEdit').addEventListener('input', e => {
+  const k = e.target.dataset.k; if (!k) return; const s = S.subs.find(x => x.id === S.curSub);
+  s[k] = e.target.value; save();
+  if (k === 'title') renderSubList();
+  if (k !== 'oldCode') renderSubResult();
+});
+$('#subEdit').addEventListener('change', e => {
+  const k = e.target.dataset.k; if (k !== 'oldCode') return; const s = S.subs.find(x => x.id === S.curSub);
+  const it = itemOf(s.oldCode);
+  if (it) { s.oldName = it.name; if (it.lastBuy) { s.oldPrice = Math.round(it.lastBuy.price * 100) / 100; s.oldSupplier = it.lastBuy.sup; } if (it.lastSell) s.sellPrice = it.lastSell.price; if (s.qtyMode === 'manual') s.qtyMode = 'bom'; if (!s.title || s.title === '새 부품 대체 검토') s.title = `${it.name} 대체 검토`; }
+  save(); renderSub();
+});
+function renderSubResult() {
+  const s = S.subs.find(x => x.id === S.curSub); if (!s || !$('#subRes')) return;
+  const r = subCalc(s);
+  $('#subData').innerHTML = D ? `MMS 기준: 구매 ${D.meta.buyAsOf || '–'} · 판매 ${D.meta.sellAsOf || '–'}` : '<span class="red">MMS 데이터 미연결 — 데이터 · 설정 탭</span>';
+  $('#subOldInfo').innerHTML = r.it ? (r.it.lastBuy ? `최근 매입 <b>${won(r.it.lastBuy.price)}원</b> (${r.it.lastBuy.date} · ${esc(r.it.lastBuy.sup)} · ${r.it.lastBuy.qty.toLocaleString()}개)${r.it.buy12 && r.it.buy12.qty ? ` · 12개월 평균 ${won(r.it.buy12.amt / r.it.buy12.qty)}원` : ''}` : '구매 이력 없음') : (s.oldCode && D ? '<span class="red">MMS에 없는 품목코드입니다 (717062 ≠ 717062.0 주의)</span>' : '');
+  $('#subNewInfo').innerHTML = isFinite(r.newP) ? `입고원가 <b>${won(r.newP)}원</b>${s.newCur !== 'KRW' ? ` (= ${s.newPrice} ${s.newCur} × ${fxOf(s.newCur).toFixed(2)} × ${(1 + (s.newDiv === '수입' ? num(ST().costImport) : num(ST().costDomestic)) / 100).toFixed(2)})` : ''}` : '';
+  const ok = r.save1 > 0;
+  $('#subRes').innerHTML = `
+   <div class="kpis">
+    <div class="kpi ${ok ? 'hl' : 'bad'}"><div class="l">개당 절감액</div><div class="v">${won(r.save1)}원</div><div class="s">${won(r.oldP)} → ${won(r.newP)}원 (${pct(r.saveRate)})</div></div>
+    <div class="kpi"><div class="l">연간 사용량</div><div class="v">${isFinite(r.qty) ? Math.round(r.qty).toLocaleString() : '–'}개</div><div class="s">${r.qtySrc}</div></div>
+    <div class="kpi"><div class="l">금형비 + 투자</div><div class="v">${won(r.invest)}원</div><div class="s">금형 ${won(num(s.mold) || 0)} · 기타 ${won(num(s.other) || 0)}</div></div>
+    <div class="kpi ${ok ? 'hl' : 'bad'}"><div class="l">투자 회수 수량</div><div class="v">${ok ? Math.ceil(r.payQty).toLocaleString() + '개' : '회수 불가'}</div><div class="s">${ok ? '이만큼 사면 금형비가 회수됩니다' : '신규 단가가 더 비쌉니다'}</div></div>
+    <div class="kpi ${ok ? 'hl' : ''}"><div class="l">회수 기간</div><div class="v">${isFinite(r.payMon) ? r.payMon.toFixed(1) + '개월' : '–'}</div><div class="s">월 ${isFinite(r.qty) ? Math.round(r.qty / 12).toLocaleString() : '–'}개 사용 기준</div></div>
+    <div class="kpi"><div class="l">연간 절감액</div><div class="v">${won(r.annual)}원</div><div class="s">3년 순이익 ${won(r.net3)}원</div></div>
+    <div class="kpi"><div class="l">이익률 (판매단가 ${won(r.sell)}원)</div><div class="v">${pct(r.mBefore)} → <span class="teal">${pct(r.mAfter)}</span></div><div class="s">${isFinite(r.mAfter) ? '+' + ((r.mAfter - r.mBefore) * 100).toFixed(1) + '%p 개선' : '판매단가를 넣으세요'}</div></div>
+   </div>
+   <h3>누적 손익 (36개월)</h3>${paybackSvg(r)}`;
+  renderUsage(r);
+}
+function paybackSvg(r) {
+  if (!(isFinite(r.save1) && isFinite(r.qty) && r.qty > 0)) return '<p class="hint">단가 · 사용량을 넣으면 그래프가 나옵니다.</p>';
+  const W = 860, H = 200, L = 70, B = 24, T = 10, n = 36; const mon = r.save1 * r.qty / 12;
+  const vals = Array.from({ length: n }, (_, i) => mon * (i + 1) - r.invest);
+  const mx = Math.max(0, ...vals), mn = Math.min(0, ...vals); const y = v => T + (H - T - B) * (mx - v) / ((mx - mn) || 1);
+  const bw = (W - L - 10) / n;
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="누적 손익 그래프">`;
+  [mx, 0, mn].filter((v, i, a) => a.indexOf(v) === i).forEach(v => g += `<line x1="${L}" x2="${W - 10}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(${v === 0 ? '--ink' : '--line'})" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" style="fill:var(--ink-soft)">${won(v / 1e4)}만</text>`);
+  vals.forEach((v, i) => { const x = L + i * bw + 1; g += `<rect x="${x}" y="${Math.min(y(v), y(0))}" width="${bw - 2}" height="${Math.max(1, Math.abs(y(v) - y(0)))}" fill="${v >= 0 ? '#0E9AA7' : '#C8553D'}" rx="1"><title>${i + 1}개월: ${won(v)}원</title></rect>`; if ((i + 1) % 6 === 0) g += `<text x="${x + bw / 2}" y="${H - 6}" font-size="11" text-anchor="middle" style="fill:var(--ink-soft)">${i + 1}개월</text>`; });
+  if (isFinite(r.payMon) && r.payMon <= n) { const x = L + r.payMon * bw; g += `<line x1="${x}" x2="${x}" y1="${T}" y2="${H - B}" style="stroke:var(--ink)" stroke-dasharray="4 3"/><text x="${x + 4}" y="${T + 12}" font-size="11.5" font-weight="700" style="fill:var(--ink)">회수 ${r.payMon.toFixed(1)}개월</text>`; }
+  return g + '</svg>';
+}
+function renderUsage(r) {
+  const el = $('#subUsage'); if (!el) return;
+  if (!r.us) { el.innerHTML = '<p class="hint">MMS 데이터를 연결하고 품목코드를 넣으면, 이 부품의 월별 사용량과 사용하는 제품 목록이 나옵니다.</p>'; return; }
+  const u = r.us; const W = 860, H = 150, L = 50, B = 22, T = 8; const mx = Math.max(1, ...u.total);
+  const bw = (W - L - 10) / u.months.length;
+  let g = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 사용량"><line x1="${L}" x2="${W - 10}" y1="${H - B}" y2="${H - B}" style="stroke:var(--ink)"/><text x="${L - 6}" y="${T + 8}" font-size="11" text-anchor="end" style="fill:var(--ink-soft)">${Math.round(mx).toLocaleString()}</text>`;
+  u.months.forEach((m, i) => {
+    const x = L + i * bw + 2, hT = (H - T - B) * u.total[i] / mx, hO = (H - T - B) * u.own[i] / mx;
+    const inWin = m >= D.meta.win[0] && m <= D.meta.win[1];
+    g += `<rect x="${x}" y="${H - B - hT}" width="${bw - 4}" height="${hT}" style="fill:${inWin ? '#4E6A7A' : 'var(--bar-out)'}"><title>${m}: 총 ${Math.round(u.total[i]).toLocaleString()} (자체 판매 ${Math.round(u.own[i]).toLocaleString()})</title></rect>`;
+    if (hO > 0) g += `<rect x="${x}" y="${H - B - hO}" width="${bw - 4}" height="${hO}" style="fill:${inWin ? '#0E9AA7' : 'var(--bar-own-out)'}"/>`;
+    if (i % 3 === 0) g += `<text x="${x + bw / 2}" y="${H - 6}" font-size="10.5" text-anchor="middle" style="fill:var(--ink-soft)">${m.slice(2)}</text>`;
+  });
+  g += '</svg>';
+  el.innerHTML = `<p class="hint">진한 막대가 계산에 쓴 12개월(${D.meta.win[0]} ~ ${D.meta.win[1]})입니다. 청록 = 이 품목 자체 판매, 회색청 = 상위 제품 판매 × BOM 소요량. ${ST().exInternal ? '그룹사 거래는 뺐습니다.' : '그룹사 거래를 포함합니다.'}</p>${g}
+   <div class="grid2" style="margin-top:8px">
+     <div><h3>이 부품이 들어가는 제품 (상위 10)</h3>${u.parents.length ? `<div class="tbl-wrap"><table><thead><tr><th>제품코드</th><th>제품명</th><th>개당 소요</th><th>12개월 소요량</th></tr></thead><tbody>${u.parents.slice(0, 10).map(p => `<tr><td>${esc(p.code)}</td><td>${esc(p.name)}</td><td class="n">${+p.ratio.toFixed(3)}</td><td class="n">${Math.round(p.qty12).toLocaleString()}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">BOM에 상위 제품이 없습니다.</p>'}</div>
+     <div><h3>최근 매입 이력</h3>${r.it && r.it.buys && r.it.buys.length ? `<div class="tbl-wrap"><table><thead><tr><th>일자</th><th>구매처</th><th>수량</th><th>단가</th></tr></thead><tbody>${r.it.buys.map(b => `<tr><td>${b.date}</td><td>${esc(b.sup)}</td><td class="n">${b.qty.toLocaleString()}</td><td class="n">${won(b.price)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">구매 이력이 없습니다.</p>'}
+     <p class="status">자체 판매 12개월 ${Math.round(u.own12).toLocaleString()}개 · BOM 포함 ${Math.round(u.total12).toLocaleString()}개${r.it && r.it.buy12 ? ` · 구매 12개월 ${Math.round(r.it.buy12.qty).toLocaleString()}개` : ''}</p></div>
+   </div>`;
+}
+$('#subPpt').onclick = async () => { const f = await buildSubPpt(); if (f) downloadBlob(f.blob, f.name); };
+$('#subTeams').onclick = async () => { const f = await buildSubPpt(); if (f) openTeams(f, `[부품 대체 검토] ${f.title}\n금형비 회수 수량 · 기간과 이익률 개선 효과를 정리했습니다.`); };
+
+/* =================== 신규 제안서 탭 =================== */
+const P = () => S.props.find(x => x.id === S.curProp);
+function lines(s) { return String(s || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); }
+function pairs(s) { return lines(s).map(l => l.split('|').map(x => x.trim())); }
+const GROUPS = [{ k: '대중', label: '대중 브랜드', c: 'A9B6BF' }, { k: '디자인', label: '디자인 브랜드', c: '4E6A7A' }, { k: '직접', label: '직접 경쟁', c: 'C8553D' }, { k: '자사', label: '폰타나 현행', c: '0E9AA7' }];
+function groupOf(s) { s = String(s || ''); return GROUPS.findIndex(g => s.includes(g.k)) >= 0 ? GROUPS.findIndex(g => s.includes(g.k)) : 0; }
+function costModel(p) {
+  const models = p.cost.models.split(',').map(s => s.trim()).filter(Boolean);
+  const fins = p.cost.finishes.split(',').map(s => s.trim()).filter(Boolean);
+  const sets = p.cost.setNames.split(',').map(s => s.trim()).filter(Boolean);
+  const v = (m, f, s) => { const x = num(p.cost.m[`${m}|${f}|${s}`]); if (!isFinite(x)) return NaN; return p.cost.mode === 'KRW' ? x : landedCost('수입', p.cost.mode, x); };
+  return { models, fins, sets, v };
+}
+function autoSummary(p) {
+  const cm = costModel(p); const out = { cost: '', price: '' };
+  if (cm.sets.length && cm.fins.length) {
+    const s0 = cm.sets[0];
+    const parts = cm.fins.slice(0, 2).map((f, i) => { const xs = cm.models.map(m => cm.v(m, f, s0)).filter(isFinite); if (!xs.length) return ''; const a = Math.min(...xs), b = Math.max(...xs); return `${i ? '' : `주력 ${s0.split('·')[0].trim()}(${f}) 입고가 약 `}${i ? f + ' 약 ' : ''}${won(a)}${a !== b ? '~' + won(b) : ''}원`; }).filter(Boolean);
+    out.cost = parts.join(' · ');
+    const bm = p.pricing.baseModel || cm.models[0];
+    const fs = cm.fins.filter(f => isFinite(num(p.pricing.compare[f])));
+    const c0 = cm.v(bm, cm.fins[0], s0); const pr = priceOf(c0);
+    if (fs.length) out.price = `현행가(${fs.map(f => `${f} ${won(num(p.pricing.compare[f]))}`).join(' · ')}원) 유지 시 ${s0.split('·')[0].trim()} 마진 약 ${fs.map(f => pct(1 - cm.v(bm, f, s0) / (num(p.pricing.compare[f]) / 1.1), 0)).join(' / ')} (VAT 제외, 수수료 별도)`;
+    else if (isFinite(pr.base)) out.price = `${s0}(${cm.fins[0]}) 대리점가 ${won(pr.base)}원 · 소비자가 ${won(roundUp(pr.base * num(ST().consumerMult)))}원 (영업이익 ${ST().op}% 기준)`;
+  }
+  return out;
+}
+function renderPropList() {
+  $('#propList').innerHTML = S.props.map(p => `<div class="li ${p.id === S.curProp ? 'on' : ''}" data-id="${p.id}"><span class="t">${esc(p.title || '제목 없음')}</span><button class="x" data-del title="삭제">×</button></div>`).join('');
+}
+$('#propList').addEventListener('click', e => {
+  const li = e.target.closest('.li'); if (!li) return; const p = S.props.find(x => x.id === li.dataset.id);
+  if (e.target.matches('[data-del]')) { ask(`'${p.title}' 제안서를 지울까요?`, '지우기').then(ok => { if (!ok) return; S.props = S.props.filter(x => x !== p); if (S.curProp === p.id) S.curProp = (S.props[0] || {}).id; save(); renderProp(); }); return; }
+  S.curProp = p.id; save(); renderProp();
+});
+$('#propNew').onclick = () => { const p = emptyProposal(); p.date = `${new Date().getFullYear()}. ${new Date().getMonth() + 1}`; S.props.unshift(p); S.curProp = p.id; save(); renderProp(); };
+$('#propDup').onclick = () => { const p = P(); if (!p) return; const c = JSON.parse(JSON.stringify(p)); c.id = uid(); c.title += ' (복사본)'; S.props.unshift(c); S.curProp = c.id; save(); renderProp(); };
+
+/* 입력 필드 헬퍼: data-p="경로" 로 상태와 연결 */
+function getPath(o, path) { return path.split('.').reduce((a, k) => a == null ? a : a[k], o); }
+function setPath(o, path, v) { const ks = path.split('.'); const last = ks.pop(); const t = ks.reduce((a, k) => a[k], o); t[last] = v; }
+const inp = (path, label, attrs = '', style = '') => `<div class="fld" style="${style}"><label>${label}</label><input data-p="${path}" value="${esc(getPath(P(), path))}" ${attrs}></div>`;
+const ta = (path, label, ph = '', h = 64) => `<div class="fld"><label>${label}</label><textarea data-p="${path}" placeholder="${esc(ph)}" style="min-height:${h}px">${esc(getPath(P(), path))}</textarea></div>`;
+const img = (path, label) => { const v = getPath(P(), path); return `<div class="imgbox">${v ? `<img src="${v}" alt="">` : '<div class="ph">사진</div>'}<div class="fld"><label>${label}</label><div class="row" style="gap:4px"><button class="b" data-img="${path}">사진 넣기</button>${v ? `<button class="b" data-imgdel="${path}">지우기</button>` : ''}</div></div></div>`; };
+const onoff = (path) => `<label class="pill ${getPath(P(), path) ? '' : 'g'}" style="cursor:pointer" onclick="event.stopPropagation()"><input type="checkbox" data-p="${path}" ${getPath(P(), path) ? 'checked' : ''} style="vertical-align:-2px"> PPT에 넣기</label>`;
+function sec(id, title, body, onPath) { const open = (openSecs.has(id)) ? 'open' : ''; return `<details class="sec" data-sec="${id}" ${open}><summary>${title}${onPath ? onoff(onPath) : ''}</summary><div class="in">${body}</div></details>`; }
+const openSecs = new Set(['cover']);
+function renderProp() {
+  renderPropList();
+  const p = P(); if (!p) { $('#propEdit').innerHTML = '<div class="card"><p class="hint">+ 새 제안서를 누르세요.</p></div>'; $('#propOutline').innerHTML = ''; return; }
+  const auto = autoSummary(p); const cm = costModel(p);
+  const costGrid = (() => {
+    if (!cm.models.length || !cm.fins.length || !cm.sets.length) return '<p class="hint">모델 · 마감 · 세트 이름을 쉼표로 넣으면 입력표가 생깁니다.</p>';
+    let h = `<div class="tbl-wrap"><table><thead><tr><th>모델</th><th>마감</th>${cm.sets.map(s => `<th>${esc(s)}</th>`).join('')}</tr></thead><tbody>`;
+    cm.models.forEach(m => cm.fins.forEach((f, fi) => {
+      h += `<tr><td class="strong">${fi ? '' : esc(m)}</td><td>${esc(f)}</td>${cm.sets.map(s => { const k = `${m}|${f}|${s}`; const lc = cm.v(m, f, s); return `<td><input type="number" step="any" data-cost="${esc(k)}" value="${esc(p.cost.m[k] ?? '')}" style="width:96px">${p.cost.mode !== 'KRW' && isFinite(lc) ? `<div class="mut" style="font-size:11px;text-align:right">${won(lc)}원</div>` : ''}</td>`; }).join('')}</tr>`;
+    }));
+    return h + '</tbody></table></div>';
+  })();
+  const pricingTbl = (() => {
+    const bm = p.pricing.baseModel || cm.models[0]; if (!bm || !cm.sets.length) return '';
+    let h = `<div class="tbl-wrap"><table><thead><tr><th>세트 (${esc(bm)})</th>${cm.fins.map(f => `<th>${esc(f)} 입고가</th><th>대리점가</th><th>소비자가</th>${isFinite(num(p.pricing.compare[f])) ? `<th>마진 @${won(num(p.pricing.compare[f]))}</th>` : ''}`).join('')}</tr></thead><tbody>`;
+    cm.sets.forEach(s => { h += `<tr><td>${esc(s)}</td>${cm.fins.map(f => { const c = cm.v(bm, f, s); const pr = priceOf(c); const cp = num(p.pricing.compare[f]); return `<td class="n">${won(c)}</td><td class="n strong teal">${won(pr.base)}</td><td class="n">${won(roundUp(pr.base * num(ST().consumerMult)))}</td>${isFinite(cp) ? `<td class="n strong">${pct(1 - c / (cp / 1.1))}</td>` : ''}`; }).join('')}</tr>`; });
+    return h + '</tbody></table></div>';
+  })();
+  $('#propEdit').innerHTML = `
+  <div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(p.title || '제목 없음')}</h2><span class="status">칸을 비워 두면 그 장은 PPT에서 빠집니다</span></div></div>
+  ${sec('cover', '1. 표지', `<div class="row">${inp('title', '제안서 이름 (파일 이름 · 바닥글)', '', 'flex:1;min-width:260px')}${inp('kicker', '상단 작은 글씨', '', 'width:160px')}</div>
+     <div class="grid2" style="margin-top:8px">${ta('coverTitle', '표지 제목 (줄바꿈 가능)', '', 56)}${ta('subtitle', '부제 (줄바꿈 가능)', '', 56)}</div>
+     <div class="row" style="margin-top:8px">${inp('from', '보내는 곳 → 받는 곳', '', 'width:200px')}${inp('date', '작성 연월', '', 'width:110px')}${inp('baseDate', '자료 기준일', '', 'width:120px')}</div>
+     <div style="margin-top:8px">${img('coverImg', '표지 오른쪽 제품 사진')}</div>`)}
+  ${sec('summary', '2. 한 장 요약', `<p class="hint">'얼마에 들어오나 · 얼마에 파나'는 비워 두면 입고가 · 판매가 표에서 자동으로 씁니다.</p>
+     ${ta('summary.why', '왜 준비하나')}${ta('summary.what', '무엇을 파나')}
+     ${ta('summary.cost', '얼마에 들어오나', '자동: ' + auto.cost)}${ta('summary.price', '얼마에 파나', '자동: ' + auto.price)}${ta('summary.review', '추가 검토')}`)}
+  ${sec('bg', '3. 추진 배경', `<div class="grid2"><div>
+       <div class="row">${inp('bg.curLabel', '왼쪽 제목', '', 'width:130px')}${inp('bg.curCode', '현행 제품 코드', '', 'flex:1')}</div>
+       ${ta('bg.rows', '항목 | 내용 (한 줄에 하나)', '구성 | 자석 거치대 + T밸브 + 호스 3M', 90)}</div>
+       <div>${inp('bg.nextTitle', '오른쪽 제목', '', '')}${[0, 1, 2].map(i => `<div class="row" style="margin-top:6px">${inp(`bg.next.${i}.t`, `방향 ${i + 1}`, '', 'width:110px')}${inp(`bg.next.${i}.d`, '설명', '', 'flex:1')}</div>`).join('')}</div></div>`, 'bg.on')}
+  ${sec('market', '4. 경쟁사 판매가', `${inp('market.title', '장 제목 (결론을 한 줄로)', '', '')}
+     ${ta('market.items', '제품 | 판매가 | 구분(대중 / 디자인 / 직접 / 자사)', '대림바스 DL-S4193 SET | 21900 | 대중', 160)}
+     <div class="grid3">${[0, 1, 2].map(i => `<div class="slot">${inp(`market.notes.${i}.t`, `해설 ${i + 1} 제목`)}${ta(`market.notes.${i}.d`, '내용', '', 48)}</div>`).join('')}</div>
+     ${inp('market.source', '출처', '', 'margin-top:8px')}`, 'market.on')}
+  ${sec('comps', '5. 경쟁사 사진', `<p class="hint">사진이 있는 경쟁 제품만 카드로 만듭니다 (최대 9개). 사진이 하나도 없으면 이 장은 빠집니다.</p>
+     ${inp('comps.title', '장 제목', '', '')}
+     <div class="grid3" style="margin-top:8px">${p.comps.items.map((c, i) => `<div class="slot">${img(`comps.items.${i}.img`, '사진')}<div class="row">${inp(`comps.items.${i}.brand`, '브랜드', '', 'width:90px')}${inp(`comps.items.${i}.name`, '제품', '', 'flex:1')}</div><div class="row">${inp(`comps.items.${i}.price`, '판매가', 'type="number"', 'width:100px')}${inp(`comps.items.${i}.shop`, '판매처', '', 'flex:1')}</div>${inp(`comps.items.${i}.desc`, '특징')}<label class="status"><input type="checkbox" data-p="comps.items.${i}.hot" ${c.hot ? 'checked' : ''}> 직접 경쟁 (빨간 테두리)</label><button class="b" data-compdel="${i}">빼기</button></div>`).join('')}</div>
+     ${p.comps.items.length < 9 ? '<button class="b" id="compAdd" style="margin-top:8px">+ 경쟁 제품</button>' : ''}`, 'comps.on')}
+  ${sec('lineup', '6. 제안 라인업', `${inp('lineup.title', '장 제목')}<div class="grid3" style="margin-top:8px">${[0, 1, 2].map(i => `<div class="slot">${img(`lineup.models.${i}.img`, '모델 사진')}${inp(`lineup.models.${i}.tag`, '태그')}${inp(`lineup.models.${i}.code`, '모델 코드')}${inp(`lineup.models.${i}.name`, '한 줄 설명')}${ta(`lineup.models.${i}.bullets`, '특징 (한 줄에 하나)', '', 80)}</div>`).join('')}</div>${inp('lineup.note', '하단 공통 메모', '', 'margin-top:8px')}`, 'lineup.on')}
+  ${sec('sets', '7. 세트 구성', `${inp('sets.title', '장 제목')}<h3>구성품 (+ 로 연결)</h3><div class="grid3" style="grid-template-columns:repeat(4,1fr)">${[0, 1, 2, 3].map(i => `<div class="slot">${img(`sets.parts.${i}.img`, '사진')}${inp(`sets.parts.${i}.name`, '이름')}${inp(`sets.parts.${i}.desc`, '설명')}</div>`).join('')}</div>
+     <h3>세트 선택지</h3><div class="grid3">${[0, 1, 2].map(i => `<div class="slot">${img(`sets.options.${i}.img`, '사진')}<div class="row">${inp(`sets.options.${i}.tag`, '세트명', '', 'width:90px')}${inp(`sets.options.${i}.badge`, '구분', '', 'flex:1')}</div>${inp(`sets.options.${i}.name`, '밸브 · 구성')}${ta(`sets.options.${i}.desc`, '설명', '', 48)}</div>`).join('')}</div>`, 'sets.on')}
+  ${sec('cost', '8. 세트별 입고가', `${inp('cost.title', '장 제목')}
+     <div class="row" style="margin-top:8px">${inp('cost.models', '모델 (쉼표)', '', 'flex:1')}${inp('cost.finishes', '마감 (쉼표)', '', 'flex:1')}${inp('cost.setNames', '세트 (쉼표)', '', 'flex:1.4')}
+     <div class="fld"><label>단가 입력 방식</label><select data-p="cost.mode"><option value="USD" ${p.cost.mode === 'USD' ? 'selected' : ''}>FOB USD</option><option value="CNY" ${p.cost.mode === 'CNY' ? 'selected' : ''}>FOB CNY</option><option value="KRW" ${p.cost.mode === 'KRW' ? 'selected' : ''}>원화 입고가</option></select></div></div>
+     <p class="hint" style="margin-top:6px">${p.cost.mode === 'KRW' ? '입고가(원)를 그대로 넣습니다.' : `외화 단가를 넣으면 ${p.cost.mode} × ${fxOf(p.cost.mode).toFixed(2)}원 × (1 + 수입 부대비용 ${ST().costImport}%)로 입고가를 계산합니다.`} 첫 번째 세트가 주력으로 강조됩니다.</p>
+     ${costGrid}${ta('cost.note', '표 아래 설명 (환율 · 견적 근거)', '', 48)}`, 'cost.on')}
+  ${sec('pricing', '9. 판매가 검토', `${inp('pricing.title', '장 제목')}
+     <div class="row" style="margin-top:8px"><div class="fld"><label>기준 모델</label><select data-p="pricing.baseModel">${cm.models.map(m => `<option ${m === (p.pricing.baseModel || cm.models[0]) ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></div>
+     ${cm.fins.map(f => `<div class="fld"><label>${esc(f)} 현행 · 목표 온라인가 (VAT 포함)</label><input type="number" data-compare="${esc(f)}" value="${esc(p.pricing.compare[f] ?? '')}" style="width:150px"></div>`).join('')}</div>
+     <p class="hint" style="margin-top:6px">대리점가 = 입고가에 판관비 ${ST().sga}% · 영업이익 ${ST().op}%를 얹은 최저 제안가, 소비자가 = 대리점가 × ${ST().consumerMult}. 온라인가를 넣으면 그 가격으로 팔 때 마진(1 − 입고가 ÷ (판매가 ÷ 1.1))도 함께 보여 줍니다.</p>
+     ${pricingTbl}${ta('pricing.points', '검토 포인트 (한 줄에 하나)', '', 80)}`, 'pricing.on')}
+  ${sec('points', '10. 영업 포인트', `${inp('points.title', '장 제목')}<div class="grid3" style="margin-top:8px">${[0, 1, 2, 3, 4, 5].map(i => `<div class="slot">${inp(`points.items.${i}.t`, `포인트 ${i + 1}`)}${ta(`points.items.${i}.d`, '설명', '', 48)}</div>`).join('')}</div>`, 'points.on')}
+  ${sec('review', '11. 추가 검토 사항', `<div class="grid2"><div>${inp('review.leftTitle', '왼쪽 제목')}${ta('review.left', '항목 (한 줄에 하나)', '', 90)}</div><div>${inp('review.rightTitle', '오른쪽 제목')}${ta('review.right', '항목 (한 줄에 하나)', '', 90)}</div></div>`, 'review.on')}
+  <input type="file" id="imgIn" accept="image/*" hidden>`;
+  renderOutline();
+}
+function renderOutline() {
+  const p = P(); if (!p) return;
+  const sl = proposalSlides(p);
+  $('#propOutline').innerHTML = `<h3 style="margin:0 0 6px">PPT 구성 (${sl.length}장)</h3><ol class="steps" style="padding-left:18px">${sl.map(s => `<li>${esc(s)}</li>`).join('')}</ol>`;
+}
+$('#propEdit').addEventListener('toggle', e => { const d = e.target.closest('details[data-sec]'); if (d) d.open ? openSecs.add(d.dataset.sec) : openSecs.delete(d.dataset.sec); }, true);
+$('#propEdit').addEventListener('input', e => {
+  const p = P(); const t = e.target;
+  if (t.dataset.p) {
+    setPath(p, t.dataset.p, t.type === 'checkbox' ? t.checked : t.value); save();
+    if (t.dataset.p === 'title') renderPropList();
+    if (t.type === 'checkbox' || t.tagName === 'SELECT') renderPropKeep(); else renderOutline();
+    return;
+  }
+  if (t.dataset.cost) { p.cost.m[t.dataset.cost] = t.value; save(); return; }
+  if (t.dataset.compare) { p.pricing.compare[t.dataset.compare] = t.value; save(); return; }
+});
+$('#propEdit').addEventListener('change', e => { const t = e.target; if (t.dataset.cost || t.dataset.compare || /^cost\.(models|finishes|setNames)/.test(t.dataset.p || '')) renderPropKeep(); });
+function renderPropKeep() { const y = scrollY; renderProp(); scrollTo(0, y); }
+let imgPath = null;
+$('#propEdit').addEventListener('click', e => {
+  const t = e.target; const p = P();
+  if (t.dataset.img) { imgPath = t.dataset.img; $('#imgIn').value = ''; $('#imgIn').click(); }
+  if (t.dataset.imgdel) { setPath(p, t.dataset.imgdel, ''); save(); renderPropKeep(); }
+  if (t.id === 'compAdd') { p.comps.items.push({ brand: '', name: '', price: '', shop: '', desc: '', img: '', hot: false }); save(); renderPropKeep(); }
+  if (t.dataset.compdel) { p.comps.items.splice(+t.dataset.compdel, 1); save(); renderPropKeep(); }
+});
+$('#propEdit').addEventListener('change', async e => {
+  if (e.target.id !== 'imgIn' || !e.target.files[0] || !imgPath) return;
+  const url = await shrinkImage(e.target.files[0], 900); setPath(P(), imgPath, url); save(); renderPropKeep();
+});
+function shrinkImage(file, max) {
+  return new Promise(res => { const fr = new FileReader(); fr.onload = () => { const im = new Image(); im.onload = () => { const k = Math.min(1, max / Math.max(im.width, im.height)); const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', .85)); }; im.src = fr.result; }; fr.readAsDataURL(file); });
+}
+$('#propPpt').onclick = async () => { const f = await buildPropPpt(); if (f) downloadBlob(f.blob, f.name); };
+$('#propTeams').onclick = async () => { const f = await buildPropPpt(); if (f) openTeams(f, `[신규 제품 제안] ${f.title}\n라인업 · 입고가 · 판매가 검토 자료입니다. 검토 후 의견 부탁드립니다.`); };
+
+/* =================== PPT 공통 =================== */
+const C = { ink: '1F2A33', soft: '5B6770', mut: '8A949B', teal: '0E9AA7', tealSoft: 'E6F5F6', bg: 'F2F5F7', line: 'DDE3E7', steel: '4E6A7A', gray: 'A9B6BF', red: 'C8553D', redSoft: 'FBEDEA', dark2: '2B3945' };
+const FONT = 'Malgun Gothic';
+const TM = [0.03, 0.07, 0.03, 0.07]; // 표 셀 여백 (인치)
+function newPres(title) {
+  if (typeof PptxGenJS === 'undefined') { toast('PPT 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침하세요.', 5000); return null; }
+  const pres = new PptxGenJS(); pres.layout = 'LAYOUT_16x9'; pres.title = title; pres.company = '태성정밀'; pres.theme = { headFontFace: FONT, bodyFontFace: FONT };
+  return pres;
+}
+function T(slide, text, x, y, w, h, o = {}) { slide.addText(text, Object.assign({ x, y, w, h, fontFace: FONT, fontSize: 9, color: C.ink, margin: 0, valign: 'top', paraSpaceAfter: 0 }, o)); }
+function box(slide, x, y, w, h, fill, line, r = 0.06) { slide.addShape(r ? 'roundRect' : 'rect', { x, y, w, h, fill: { color: fill }, line: line ? { color: line, width: 0.75 } : { type: 'none' }, rectRadius: r }); }
+function circleNum(slide, x, y, d, n, fill = C.teal) { slide.addShape('ellipse', { x, y, w: d, h: d, fill: { color: fill }, line: { type: 'none' } }); T(slide, String(n), x, y, d, d, { color: 'FFFFFF', bold: true, fontSize: d > 0.4 ? 12 : 9, align: 'center', valign: 'middle' }); }
+function base(pres, kicker, title, page, footer) {
+  const s = pres.addSlide(); s.background = { color: 'FFFFFF' };
+  T(s, kicker, 0.5, 0.32, 7, 0.25, { fontSize: 9, bold: true, color: C.teal, charSpacing: 1 });
+  T(s, title, 0.5, 0.55, 9, 0.5, { fontSize: 19, bold: true });
+  T(s, footer, 0.5, 5.28, 7, 0.2, { fontSize: 7.5, color: C.mut });
+  T(s, String(page).padStart(2, '0'), 9.0, 5.28, 0.5, 0.2, { fontSize: 7.5, color: C.mut, align: 'right' });
+  return s;
+}
+function bullets(arr, o = {}) { return arr.map(t => ({ text: t, options: Object.assign({ bullet: { code: '2022' }, breakLine: true, paraSpaceAfter: 3 }, o) })); }
+async function finish(pres, name, title) {
+  const blob = await pres.write({ outputType: 'blob' });
+  return { blob, name: name.replace(/[\\/:*?"<>|]/g, '_') + '.pptx', title };
+}
+function imgOpts(dataUrl, x, y, w, h) { return { data: dataUrl, x, y, w, h, sizing: { type: 'contain', w, h } }; }
+function addImg(s, url, x, y, w, h) { if (!url) return; try { const im = new Image(); im.src = url; const r = (im.naturalWidth && im.naturalHeight) ? im.naturalWidth / im.naturalHeight : 1; let iw = w, ih = w / r; if (ih > h) { ih = h; iw = h * r; } s.addImage({ data: url, x: x + (w - iw) / 2, y: y + (h - ih) / 2, w: iw, h: ih }); } catch (e) { } }
+function preload(urls) { return Promise.all(urls.filter(Boolean).map(u => new Promise(r => { const im = new Image(); im.onload = im.onerror = () => r(); im.src = u; }))); }
+function cover(pres, o) {
+  const s = pres.addSlide(); s.background = { color: C.ink };
+  if (o.img) { s.addShape('rect', { x: 5.6, y: 0, w: 4.4, h: 5.625, fill: { color: 'FFFFFF' }, line: { type: 'none' } }); addImg(s, o.img, 5.6, 0, 4.4, 5.625); }
+  else s.addShape('rect', { x: 5.6, y: 0, w: 4.4, h: 5.625, fill: { color: C.teal }, line: { type: 'none' } });
+  T(s, o.kicker || 'SALES PROPOSAL', 0.6, 1.2, 4.8, 0.3, { fontSize: 11, bold: true, color: '7FD3DA', charSpacing: 2 });
+  T(s, o.title, 0.6, 1.6, 4.9, 1.3, { fontSize: 28, bold: true, color: 'FFFFFF', valign: 'top', lineSpacingMultiple: 1.05 });
+  T(s, o.subtitle || '', 0.6, 3.05, 4.9, 0.8, { fontSize: 12.5, color: 'C9D3D9' });
+  T(s, o.footer || '', 0.6, 4.7, 4.9, 0.3, { fontSize: 10, color: '8FA0AA' });
+  return s;
+}
+
+/* ---------- 신규 제안서 PPT ---------- */
+function proposalSlides(p) {
+  const out = ['표지', '한 장 요약'];
+  if (p.bg.on && (p.bg.curCode || lines(p.bg.rows).length)) out.push('추진 배경');
+  if (p.market.on && pairs(p.market.items).filter(r => isFinite(num(r[1]))).length) out.push('경쟁사 판매가');
+  if (p.comps.on && p.comps.items.some(c => c.img)) out.push('경쟁사 사진');
+  if (p.lineup.on && p.lineup.models.some(m => m.code)) out.push('제안 라인업');
+  if (p.sets.on && (p.sets.parts.some(x => x.name) || p.sets.options.some(x => x.tag))) out.push('세트 구성');
+  const cm = costModel(p); const hasCost = cm.models.some(m => cm.fins.some(f => cm.sets.some(s => isFinite(cm.v(m, f, s)))));
+  if (p.cost.on && hasCost) out.push('세트별 입고가');
+  if (p.pricing.on && hasCost) out.push('판매가 검토');
+  if (p.points.on && p.points.items.some(x => x.t)) out.push('영업 포인트');
+  if (p.review.on && (lines(p.review.left).length || lines(p.review.right).length)) out.push('추가 검토 사항');
+  return out;
+}
+async function buildPropPpt() {
+  const p = P(); if (!p) return null; const pres = newPres(p.title); if (!pres) return null;
+  const imgs = [p.coverImg, ...p.lineup.models.map(m => m.img), ...p.sets.parts.map(m => m.img), ...p.sets.options.map(m => m.img), ...p.comps.items.map(m => m.img)];
+  await preload(imgs);
+  const foot = `${ST().footerOrg} | ${p.title}`; const has = new Set(proposalSlides(p)); let pg = 1;
+  const auto = autoSummary(p); const cm = costModel(p);
+  cover(pres, { kicker: p.kicker, title: p.coverTitle || p.title, subtitle: p.subtitle, img: p.coverImg, footer: [p.from, p.date, p.baseDate ? '자료 기준일 ' + p.baseDate : ''].filter(Boolean).join('  |  ') });
+  // 요약
+  { const s = base(pres, 'SUMMARY', '한 장 요약', ++pg, foot);
+    const rows = [['왜 준비하나', p.summary.why], ['무엇을 파나', p.summary.what], ['얼마에 들어오나', p.summary.cost || auto.cost], ['얼마에 파나', p.summary.price || auto.price], ['추가 검토', p.summary.review]].filter(r => r[1]);
+    const h = Math.min(0.66, 3.9 / rows.length);
+    rows.forEach((r, i) => { const y = 1.25 + i * (h + 0.1); const hl = r[0] === '얼마에 파나';
+      box(s, 0.55, y, 8.9, h, hl ? C.tealSoft : 'FFFFFF', hl ? 'B7E3E7' : C.line);
+      circleNum(s, 0.72, y + (h - 0.38) / 2, 0.38, i + 1);
+      T(s, r[0], 1.3, y, 1.7, h, { fontSize: 10.5, bold: true, valign: 'middle' });
+      T(s, r[1], 3.1, y, 6.2, h, { fontSize: 9.5, color: C.ink, valign: 'middle' }); }); }
+  // 배경
+  if (has.has('추진 배경')) { const s = base(pres, 'BACKGROUND', `추진 배경 : ${p.bg.nextTitle ? '현행 제품 + ' + p.bg.nextTitle : ''}`.replace(/ : $/, ''), ++pg, foot);
+    box(s, 0.55, 1.25, 4.1, 3.75, C.bg, null);
+    T(s, p.bg.curLabel, 0.8, 1.45, 3.6, 0.25, { fontSize: 9.5, bold: true, color: C.teal });
+    T(s, p.bg.curCode, 0.8, 1.72, 3.6, 0.45, { fontSize: 20, bold: true });
+    pairs(p.bg.rows).slice(0, 5).forEach((r, i) => { const y = 2.4 + i * 0.52; s.addShape('line', { x: 0.8, y: y - 0.06, w: 3.6, h: 0, line: { color: C.line, width: 0.5 } }); T(s, r[0] || '', 0.8, y, 1.1, 0.45, { fontSize: 8.5, color: C.soft }); T(s, r.slice(1).join(' | '), 1.95, y, 2.5, 0.45, { fontSize: 9, bold: true, color: i === 3 ? C.teal : C.ink }); });
+    T(s, p.bg.nextTitle, 5.2, 1.3, 4.2, 0.3, { fontSize: 11, bold: true });
+    p.bg.next.filter(n => n.t || n.d).forEach((n, i) => { const y = 1.78 + i * 0.98; circleNum(s, 5.25, y, 0.42, i + 1); T(s, n.t, 5.85, y, 3.6, 0.28, { fontSize: 10, bold: true }); T(s, n.d, 5.85, y + 0.3, 3.6, 0.6, { fontSize: 8.5, color: C.soft }); }); }
+  // 경쟁사 판매가
+  if (has.has('경쟁사 판매가')) { const s = base(pres, 'MARKET PRICE', p.market.title || '경쟁사 온라인 판매가', ++pg, foot);
+    const items = pairs(p.market.items).map(r => ({ name: r[0], price: num(r[1]), g: groupOf(r[2]) })).filter(r => isFinite(r.price)).sort((a, b) => a.price - b.price).slice(0, 16);
+    const mx = Math.max(...items.map(i => i.price)); const rh = Math.min(0.235, 3.35 / items.length); const x0 = 3.75, bwMax = 2.25;
+    items.forEach((it, i) => { const y = 1.2 + i * rh; const g = GROUPS[it.g]; const hot = it.g >= 2;
+      T(s, it.name, 0.4, y, 3.25, rh, { fontSize: 7.5, align: 'right', valign: 'middle', bold: hot, color: hot ? (it.g === 3 ? C.teal : C.red) : C.ink });
+      s.addShape('rect', { x: x0, y: y + rh * 0.18, w: Math.max(0.02, bwMax * it.price / mx), h: rh * 0.64, fill: { color: g.c }, line: { type: 'none' } });
+      T(s, won(it.price), x0 + bwMax * it.price / mx + 0.06, y, 0.7, rh, { fontSize: 7.5, valign: 'middle', bold: hot }); });
+    const used = [...new Set(items.map(i => i.g))].sort();
+    used.forEach((gi, k) => { const x = 0.9 + k * 1.3; s.addShape('rect', { x, y: 4.72, w: 0.12, h: 0.1, fill: { color: GROUPS[gi].c }, line: { type: 'none' } }); T(s, GROUPS[gi].label, x + 0.17, 4.67, 1.1, 0.2, { fontSize: 7, color: C.soft }); });
+    T(s, p.market.source, 0.5, 4.98, 6.4, 0.2, { fontSize: 6.5, color: C.mut });
+    p.market.notes.filter(n => n.t || n.d).forEach((n, i) => { const y = 1.25 + i * 1.2; box(s, 7.05, y, 2.45, 1.05, C.bg, null); T(s, n.t, 7.2, y + 0.1, 2.15, 0.22, { fontSize: 9, bold: true, color: C.teal }); T(s, n.d, 7.2, y + 0.36, 2.15, 0.65, { fontSize: 8, color: C.ink }); }); }
+  // 경쟁사 사진
+  if (has.has('경쟁사 사진')) { const s = base(pres, 'COMPETITOR', p.comps.title || '경쟁사 주요 제품 : 사진 · 판매가', ++pg, foot);
+    p.comps.items.filter(c => c.img || c.name).slice(0, 9).forEach((c, i) => { const x = 0.5 + (i % 3) * 3.05, y = 1.2 + Math.floor(i / 3) * 1.22;
+      box(s, x, y, 2.9, 1.1, c.hot ? C.redSoft : 'FFFFFF', c.hot ? C.red : C.line);
+      addImg(s, c.img, x + 0.08, y + 0.08, 0.95, 0.94);
+      T(s, c.brand, x + 1.12, y + 0.08, 1.7, 0.18, { fontSize: 7, color: C.soft });
+      T(s, c.name, x + 1.12, y + 0.26, 1.7, 0.22, { fontSize: 8.5, bold: true });
+      T(s, isFinite(num(c.price)) ? won(num(c.price)) + '원' : '', x + 1.12, y + 0.48, 1.7, 0.24, { fontSize: 11, bold: true, color: c.hot ? C.red : C.teal });
+      T(s, c.desc, x + 1.12, y + 0.73, 1.7, 0.18, { fontSize: 6.5, color: C.soft });
+      T(s, c.shop ? '판매처 ' + c.shop : '', x + 1.12, y + 0.9, 1.7, 0.16, { fontSize: 6.5, color: C.soft }); }); }
+  // 라인업
+  if (has.has('제안 라인업')) { const s = base(pres, 'LINEUP', p.lineup.title || '제안 라인업', ++pg, foot);
+    const ms = p.lineup.models.filter(m => m.code); const w = (9 - (ms.length - 1) * 0.2) / ms.length;
+    ms.forEach((m, i) => { const x = 0.5 + i * (w + 0.2); box(s, x, 1.2, w, 3.6, 'FFFFFF', C.line);
+      if (m.tag) { box(s, x + 0.15, 1.35, Math.min(w - 0.3, 1.6), 0.26, i ? C.steel : C.teal, null, 0.13); T(s, m.tag, x + 0.15, 1.35, Math.min(w - 0.3, 1.6), 0.26, { fontSize: 8, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' }); }
+      addImg(s, m.img, x + 0.2, 1.7, w - 0.4, 1.4);
+      T(s, m.code, x + 0.2, 3.2, w - 0.4, 0.3, { fontSize: 13, bold: true });
+      T(s, m.name, x + 0.2, 3.5, w - 0.4, 0.22, { fontSize: 8.5, color: C.soft });
+      s.addText(bullets(lines(m.bullets)), { x: x + 0.2, y: 3.78, w: w - 0.4, h: 1.0, fontFace: FONT, fontSize: 8, color: C.ink, valign: 'top', margin: 0 }); });
+    T(s, p.lineup.note, 0.5, 4.92, 9, 0.2, { fontSize: 7, color: C.soft }); }
+  // 세트
+  if (has.has('세트 구성')) { const s = base(pres, 'SET', p.sets.title || '세트 구성', ++pg, foot);
+    const parts = p.sets.parts.filter(x => x.name); const pw = (9 - (parts.length - 1) * 0.35) / parts.length;
+    parts.forEach((x, i) => { const px = 0.5 + i * (pw + 0.35); box(s, px, 1.2, pw, 1.55, 'FFFFFF', C.line); addImg(s, x.img, px + 0.2, 1.28, pw - 0.4, 0.9); if (!x.img) circleNum(s, px + pw / 2 - 0.25, 1.45, 0.5, i + 1); T(s, x.name, px, 2.22, pw, 0.22, { fontSize: 9.5, bold: true, align: 'center' }); T(s, x.desc, px, 2.45, pw, 0.22, { fontSize: 7.5, color: C.soft, align: 'center' }); if (i < parts.length - 1) T(s, '+', px + pw, 1.75, 0.35, 0.35, { fontSize: 16, bold: true, color: C.soft, align: 'center', valign: 'middle' }); });
+    const ops = p.sets.options.filter(x => x.tag || x.name); const ow = (9 - (ops.length - 1) * 0.2) / ops.length;
+    ops.forEach((o, i) => { const x = 0.5 + i * (ow + 0.2); box(s, x, 2.95, ow, 2.0, i ? 'FFFFFF' : C.tealSoft, i ? C.line : 'B7E3E7');
+      box(s, x + 0.15, 3.08, 0.75, 0.24, i ? C.steel : C.teal, null, 0.12); T(s, o.tag, x + 0.15, 3.08, 0.75, 0.24, { fontSize: 8, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
+      T(s, o.badge, x + 1.0, 3.08, ow - 1.1, 0.24, { fontSize: 8, color: C.soft, valign: 'middle' });
+      const tw = o.img ? ow - 1.25 : ow - 0.3; T(s, o.name, x + 0.15, 3.42, tw, 0.45, { fontSize: 9, bold: true }); T(s, o.desc, x + 0.15, 3.92, tw, 0.9, { fontSize: 7.5, color: C.soft });
+      addImg(s, o.img, x + ow - 1.05, 3.4, 0.9, 1.4); }); }
+  // 입고가
+  if (has.has('세트별 입고가')) { const s = base(pres, 'LANDED COST', p.cost.title || '세트별 입고가', ++pg, foot);
+    const hd = ['헤드', '마감', ...cm.sets].map((t, i) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: i < 2 ? 'left' : 'right' } }));
+    const rows = [hd];
+    cm.models.forEach(m => cm.fins.forEach((f, fi) => rows.push([{ text: fi ? '' : m, options: { bold: true } }, { text: f }, ...cm.sets.map((st, si) => ({ text: isFinite(cm.v(m, f, st)) ? won(cm.v(m, f, st)) + '원' : '–', options: { align: 'right', bold: si === 0, color: si === 0 ? C.teal : C.ink } }))])));
+    const rh = Math.min(0.3, 3.3 / rows.length);
+    s.addTable(rows, { x: 0.5, y: 1.2, w: 9, colW: [1.5, 0.9, ...cm.sets.map(() => 6.6 / cm.sets.length)], rowH: rh, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+    T(s, p.cost.note, 0.5, Math.min(4.65, 1.25 + rh * rows.length + 0.1), 9, 0.5, { fontSize: 7, color: C.soft }); }
+  // 판매가 검토
+  if (has.has('판매가 검토')) { const s = base(pres, 'PRICING', p.pricing.title || '판매가 검토', ++pg, foot);
+    const bm = p.pricing.baseModel || cm.models[0]; const fins = cm.fins.slice(0, 3); const comp = f => num(p.pricing.compare[f]);
+    const cols = ['세트 (' + bm + ' 기준)']; fins.forEach(f => { cols.push(f + ' 입고가', '대리점가', '소비자가'); if (isFinite(comp(f))) cols.push('마진 @' + won(comp(f))); });
+    const rows = [cols.map((t, i) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: i ? 'right' : 'left' } }))];
+    cm.sets.forEach((st, si) => { const r = [{ text: st, options: { bold: si === 0 } }]; fins.forEach(f => { const c = cm.v(bm, f, st); const pr = priceOf(c); r.push({ text: won(c), options: { align: 'right' } }, { text: won(pr.base), options: { align: 'right', bold: true, color: C.teal } }, { text: won(roundUp(pr.base * num(ST().consumerMult))), options: { align: 'right' } }); if (isFinite(comp(f))) { const mg = 1 - c / (comp(f) / 1.1); r.push({ text: pct(mg), options: { align: 'right', bold: true, color: mg < 0.2 ? C.red : C.teal } }); } }); rows.push(r); });
+    const ncol = cols.length; const fw = 1.9; const ow = (9 - fw) / (ncol - 1);
+    s.addTable(rows, { x: 0.5, y: 1.2, w: 9, colW: [fw, ...Array(ncol - 1).fill(ow)], rowH: 0.34, fontFace: FONT, fontSize: ncol > 9 ? 7.5 : 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+    const ty = 1.25 + 0.34 * rows.length + 0.05;
+    T(s, `대리점가 = 입고가 ÷ (1 − 판관비 ${ST().sga}% − 영업이익 ${ST().op}%), ${ST().roundUnit}원 올림 · 제안 최저가  |  소비자가 = 대리점가 × ${ST().consumerMult}  |  마진 = 1 − 입고가 ÷ (온라인가 ÷ 1.1), VAT 제외 · 플랫폼 수수료 · 배송비 별도`, 0.5, ty, 9, 0.3, { fontSize: 7, color: C.soft });
+    const pts = lines(p.pricing.points); if (pts.length) { const y = Math.max(ty + 0.4, 3.35); box(s, 0.55, y, 8.9, 5.05 - y, C.tealSoft, 'B7E3E7'); T(s, '검토 포인트', 0.75, y + 0.1, 3, 0.25, { fontSize: 9.5, bold: true, color: C.teal }); s.addText(bullets(pts), { x: 0.75, y: y + 0.38, w: 8.5, h: 5.0 - y - 0.45, fontFace: FONT, fontSize: 8.5, color: C.ink, valign: 'top', margin: 0 }); } }
+  // 영업 포인트
+  if (has.has('영업 포인트')) { const s = base(pres, 'SELLING POINT', p.points.title || '영업 포인트', ++pg, foot);
+    p.points.items.filter(x => x.t).slice(0, 6).forEach((x, i) => { const cx = 0.55 + (i % 2) * 4.5, cy = 1.25 + Math.floor(i / 2) * 1.25; box(s, cx, cy, 4.35, 1.1, 'FFFFFF', C.line); circleNum(s, cx + 0.2, cy + 0.27, 0.55, i + 1); T(s, x.t, cx + 0.95, cy + 0.15, 3.25, 0.3, { fontSize: 10.5, bold: true }); T(s, x.d, cx + 0.95, cy + 0.48, 3.25, 0.58, { fontSize: 8.5, color: C.soft }); }); }
+  // 추가 검토
+  if (has.has('추가 검토 사항')) { const s = pres.addSlide(); s.background = { color: C.ink };
+    T(s, 'FURTHER REVIEW', 0.5, 0.32, 7, 0.25, { fontSize: 9, bold: true, color: '7FD3DA', charSpacing: 1 }); T(s, '추가 검토 사항', 0.5, 0.55, 9, 0.5, { fontSize: 19, bold: true, color: 'FFFFFF' });
+    [[p.review.leftTitle, p.review.left, C.dark2], [p.review.rightTitle, p.review.right, C.teal]].forEach(([t, b, c], i) => { const x = 0.5 + i * 4.6; box(s, x, 1.3, 4.4, 3.3, c, null); T(s, t, x + 0.25, 1.48, 3.9, 0.32, { fontSize: 11.5, bold: true, color: 'FFFFFF' }); s.addText(bullets(lines(b)), { x: x + 0.25, y: 1.95, w: 3.9, h: 2.5, fontFace: FONT, fontSize: 9, color: 'FFFFFF', valign: 'top', margin: 0 }); });
+    T(s, foot, 0.5, 5.28, 7, 0.2, { fontSize: 7.5, color: '8FA0AA' }); }
+  return finish(pres, `${p.title}_${today()}`, p.title);
+}
+
+/* ---------- 유통가 보고 PPT ---------- */
+async function buildPricePpt() {
+  const rows = S.priceRows.filter(r => r.pick && isFinite(priceRowCalc(r).final));
+  if (!rows.length) { toast('보고 칸에 체크된 품목이 없습니다'); return null; }
+  const title = rows.length === 1 ? `${rows[0].name} 유통가 보고` : `${rows[0].name} 외 ${rows.length - 1}건 유통가 보고`;
+  const pres = newPres(title); if (!pres) return null; const st = ST();
+  const foot = `${st.footerOrg} | ${title}`;
+  cover(pres, { kicker: 'PRICE REPORT', title: '최종 유통가 보고', subtitle: `${rows.length}개 품목 · 대리점가(제안 최저가) · 소비자가\n${st.fxMonth} 환율 USD ${num(st.fxUsd).toFixed(2)} · CNY ${num(st.fxCny).toFixed(2)}`, footer: `${st.footerOrg.split('→')[0].trim()}  |  ${today()}` });
+  const per = 13; let pg = 1;
+  for (let i = 0; i < rows.length; i += per) {
+    const s = base(pres, 'PRICE', `대리점가 · 소비자가 (${i + 1}~${Math.min(rows.length, i + per)} / ${rows.length})`, ++pg, foot);
+    const hd = ['품목', '품목코드', '수량', '매입원가', 'BEP', '대리점가', '소비자가', '영업이익/개', '영업이익률'].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k < 2 ? 'left' : 'right' } }));
+    const body = rows.slice(i, i + per).map(r => { const c = priceRowCalc(r); return [r.name, r.code, (num(r.qty) || 0).toLocaleString(), won(c.cost), won(c.bep), { text: won(c.final), options: { bold: true, color: C.teal, align: 'right' } }, { text: won(c.consumer), options: { bold: true, align: 'right' } }, won(c.opAmt), { text: pct(c.opRate), options: { align: 'right', color: c.opRate < 0 ? C.red : C.ink } }].map((v, k) => typeof v === 'object' ? v : { text: v, options: { align: k < 2 ? 'left' : 'right' } }); });
+    s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW: [1.5, 1.4, 0.65, 0.95, 0.85, 1.0, 1.0, 0.85, 0.8], rowH: 0.27, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+    T(s, `매입원가 = 외화 단가 × 환율 × (1 + 부대비용) · 대리점가 = 매입원가 ÷ (1 − 판관비 ${st.sga}% − 영업이익률) ${st.roundUnit}원 올림 · 소비자가 = 대리점가 × ${st.consumerMult} · 부가세 별도`, 0.5, 4.95, 9, 0.2, { fontSize: 7, color: C.soft });
+  }
+  // 이익률별 단가표
+  const s = base(pres, 'GUIDE', '영업이익률별 대리점가 — 영업 협상용', ++pg, foot);
+  const ops = [5, 10, 15, num(st.op), 25, 30].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
+  const hd = ['품목코드', 'BEP', ...ops.map(o => `이익 ${o}%`)].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: k >= 2 && ops[k - 2] === num(st.op) ? C.teal : C.ink }, align: k ? 'right' : 'left' } }));
+  const body = rows.slice(0, 13).map(r => { const c = priceRowCalc(r); return [{ text: r.code || r.name, options: { bold: true } }, { text: won(c.bep), options: { align: 'right', color: C.soft } }, ...ops.map(o => ({ text: won(priceOf(c.cost, r.sga, o).base), options: { align: 'right', bold: o === num(st.op), color: o === num(st.op) ? C.teal : C.ink } }))]; });
+  s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW: [1.8, 1.0, ...ops.map(() => 6.2 / ops.length)], rowH: 0.27, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+  T(s, 'BEP 아래로 팔면 팔수록 손해입니다. 청록 열이 제안 대리점가(최저가)이며, 이익률을 올려 더 높은 단가로 협상할 수 있습니다.', 0.5, 4.95, 9, 0.2, { fontSize: 7.5, color: C.soft });
+  return finish(pres, `유통가보고_${today()}`, title);
+}
+
+/* ---------- 부품 대체 PPT ---------- */
+async function buildSubPpt() {
+  let list = S.subs.filter(s => s.pick); if (!list.length) list = S.subs.filter(s => s.id === S.curSub);
+  if (!list.length) return null;
+  const title = list.length === 1 ? (list[0].title || list[0].oldName) : `부품 대체 검토 ${list.length}건`;
+  const pres = newPres(title); if (!pres) return null; const foot = `${ST().footerOrg} | ${title}`; let pg = 1;
+  if (list.length > 1) {
+    cover(pres, { kicker: 'COST DOWN', title: '부품 대체 검토', subtitle: `${list.length}건 · 금형비 회수 · 이익률 개선`, footer: `${ST().footerOrg.split('→')[0].trim()}  |  ${today()}` });
+    const s = base(pres, 'SUMMARY', '검토 요약', ++pg, foot);
+    const hd = ['검토', '기존 단가', '신규 단가', '개당 절감', '연 사용량', '투자', '회수 기간', '연 절감액', '이익률'].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k ? 'right' : 'left' } }));
+    const body = list.map(x => { const r = subCalc(x); return [x.title || x.oldName, won(r.oldP), won(r.newP), won(r.save1), isFinite(r.qty) ? Math.round(r.qty).toLocaleString() : '–', won(r.invest), isFinite(r.payMon) ? r.payMon.toFixed(1) + '개월' : '회수 불가', won(r.annual), `${pct(r.mBefore)}→${pct(r.mAfter)}`].map((v, k) => ({ text: v, options: { align: k ? 'right' : 'left', bold: k === 6, color: k === 6 ? (isFinite(r.payMon) ? C.teal : C.red) : C.ink } })); });
+    s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW: [2.2, 0.8, 0.8, 0.75, 0.8, 0.9, 0.85, 0.95, 0.95], rowH: 0.3, fontFace: FONT, fontSize: 8, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+  }
+  for (const x of list) {
+    const r = subCalc(x); const s = base(pres, 'PART REPLACEMENT', `${x.title || '부품 대체 검토'}`, ++pg, foot);
+    const hd = [{ text: '', options: { fill: { color: C.ink } } }, { text: '기존', options: { bold: true, color: 'FFFFFF', fill: { color: C.steel }, align: 'right' } }, { text: '신규', options: { bold: true, color: 'FFFFFF', fill: { color: C.teal }, align: 'right' } }];
+    const rows = [hd, ['품목', x.oldCode ? `${x.oldName} (${x.oldCode})` : x.oldName, '동일 사양'], ['공급처', x.oldSupplier || '–', x.newSupplier || '–'],
+      ['단가 (원)', won(r.oldP), won(r.newP) + (x.newCur !== 'KRW' ? `\n(${x.newPrice} ${x.newCur})` : '')], ['판매단가 기준 이익률', pct(r.mBefore), pct(r.mAfter)], ['금형비 · 투자 (원)', '–', won(r.invest)]]
+      .map((row, i) => i === 0 ? row : row.map((v, k) => ({ text: v, options: { align: k ? 'right' : 'left', bold: k === 0 || (k === 2 && i >= 3), color: k === 2 && i >= 3 ? C.teal : C.ink, fontSize: k === 0 ? 8 : 8.5 } })));
+    s.addTable(rows, { x: 0.5, y: 1.2, w: 4.6, colW: [1.5, 1.55, 1.55], rowH: 0.32, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+    const k = [['개당 절감', `${won(r.save1)}원`, `${pct(r.saveRate)} 인하`], ['연간 사용량', isFinite(r.qty) ? Math.round(r.qty).toLocaleString() + '개' : '–', r.qtySrc], ['투자 회수 수량', r.save1 > 0 ? Math.ceil(r.payQty).toLocaleString() + '개' : '회수 불가', '금형비 ÷ 개당 절감'], ['회수 기간', isFinite(r.payMon) ? r.payMon.toFixed(1) + '개월' : '–', '연간 사용량 기준'], ['연간 절감액', won(r.annual) + '원', '3년 순이익 ' + won(r.net3) + '원'], ['이익률 개선', isFinite(r.mAfter) ? '+' + ((r.mAfter - r.mBefore) * 100).toFixed(1) + '%p' : '–', `판매단가 ${won(r.sell)}원 기준`]];
+    k.forEach((kk, i) => { const cx = 5.35 + (i % 2) * 2.1, cy = 1.2 + Math.floor(i / 2) * 0.66; const hl = i === 3 || i === 5; box(s, cx, cy, 2.0, 0.58, hl ? C.tealSoft : C.bg, null); T(s, kk[0], cx + 0.1, cy + 0.05, 1.8, 0.16, { fontSize: 7, color: C.soft }); T(s, kk[1], cx + 0.1, cy + 0.2, 1.8, 0.24, { fontSize: 12.5, bold: true, color: hl ? C.teal : C.ink }); T(s, kk[2], cx + 0.1, cy + 0.43, 1.8, 0.13, { fontSize: 6, color: C.mut }); });
+    if (isFinite(r.save1) && isFinite(r.qty) && r.qty > 0) {
+      const labels = Array.from({ length: 36 }, (_, i) => String(i + 1)); const mon = r.save1 * r.qty / 12; const vals = labels.map((_, i) => Math.round(mon * (i + 1) - r.invest));
+      T(s, '누적 손익 (원, 36개월)  —  0을 넘는 달이 투자 회수 시점', 0.5, 3.3, 6, 0.2, { fontSize: 8.5, bold: true });
+      s.addChart('bar', [{ name: '회수 전', labels, values: vals.map(v => Math.min(v, 0)) }, { name: '회수 후', labels, values: vals.map(v => Math.max(v, 0)) }], { x: 0.4, y: 3.5, w: 6.4, h: 1.7, barDir: 'col', barGrouping: 'stacked', chartColors: [C.red, C.teal], invertIfNegative: false, barGapWidthPct: 30, catAxisLabelFontSize: 6, valAxisLabelFontSize: 6, valAxisLabelFormatCode: '#,##0', catAxisLabelFontFace: FONT, valAxisLabelFontFace: FONT, valGridLine: { color: 'E6EAED', size: 0.5 }, showLegend: false, catAxisLineShow: false });
+    }
+    box(s, 6.95, 3.3, 2.55, 1.85, C.bg, null); T(s, '메모', 7.1, 3.38, 2.3, 0.2, { fontSize: 8.5, bold: true, color: C.teal });
+    T(s, [x.note, D && x.oldCode && r.it ? `MMS 기준: 구매 ${D.meta.buyAsOf || '–'} · 판매 ${D.meta.sellAsOf || '–'}${r.us ? `, 사용량 ${D.meta.win[0]}~${D.meta.win[1]}` : ''}` : ''].filter(Boolean).join('\n\n'), 7.1, 3.62, 2.3, 1.45, { fontSize: 7.5, color: C.ink });
+  }
+  return finish(pres, `부품대체검토_${list.length === 1 ? (list[0].oldCode || list[0].title) : list.length + '건'}_${today()}`, title);
+}
+
+/* =================== 내려받기 · 팀즈 =================== */
+let dlCap;
+function dlNs() { if (dlCap === undefined) dlCap = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null); return dlCap; }
+async function downloadBlob(blob, name) {
+  const dl = await dlNs();
+  if (dl) { try { await dl.save({ filename: name, data: blob }); toast(`${name} 저장`); } catch (e) { toast(e && e.code === 'declined' ? '저장을 취소했습니다' : '저장하지 못했습니다: ' + ((e && (e.message || e.code)) || e), 4000); } return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); toast(`${name} 저장`); }
+let tmFile = null;
+function openTeams(f, msg) {
+  tmFile = f; $('#tmFile').textContent = f.name; $('#tmTo').value = ST().teamsTo || ''; $('#tmMsg').value = msg;
+  $('#tmHow').innerHTML = ST().paUrl ? '파워오토메이트로 원드라이브 <b>/제품제안</b> 폴더에 저장하고, 받는 사람에게 팀즈 채팅으로 링크를 보냅니다.' : '파워오토메이트 주소가 없어 <b>PPT를 내려받고 팀즈 채팅 창을 엽니다</b>. 열린 채팅에 내려받은 파일을 끌어다 놓으세요. (자동 발송은 데이터 · 설정 탭에서 설정)';
+  $('#tmSend').hidden = false; $('#tmDl').hidden = false;
+  $('#dlgTeams').showModal();
+}
+$('#tmCancel').onclick = () => $('#dlgTeams').close();
+$('#tmDl').onclick = async () => { await downloadBlob(tmFile.blob, tmFile.name); $('#dlgTeams').close(); };
+$('#tmSend').onclick = async () => {
+  const to = $('#tmTo').value.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean); const msg = $('#tmMsg').value;
+  if (!to.length) { toast('받는 사람 메일을 넣으세요'); return; }
+  if (ST().teamsTo !== $('#tmTo').value) { S.settings.teamsTo = $('#tmTo').value; save(); }
+  if (ST().paUrl) {
+    $('#tmSend').disabled = true; $('#tmSend').textContent = '보내는 중…';
+    try {
+      const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(tmFile.blob); });
+      const res = await fetch(ST().paUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileName: tmFile.name, fileContent: b64, message: msg, recipients: to.join(','), title: tmFile.title }) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      toast(`팀즈로 보냈습니다 (${to.length}명)`); $('#dlgTeams').close();
+    } catch (err) { toast('파워오토메이트로 보내지 못했습니다 (' + err.message + '). PPT 저장 후 팀즈 채팅 링크로 보내 주세요.', 6000); fallbackTeams(to, msg); }
+    finally { $('#tmSend').disabled = false; $('#tmSend').textContent = '보내기'; }
+  } else fallbackTeams(to, msg);
+};
+async function fallbackTeams(to, msg) {
+  await downloadBlob(tmFile.blob, tmFile.name);
+  const url = `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(to.join(','))}${to.length > 1 ? '&topicName=' + encodeURIComponent(tmFile.title.slice(0, 40)) : ''}&message=${encodeURIComponent(msg + '\n(첨부: ' + tmFile.name + ')')}`;
+  $('#tmHow').innerHTML = `PPT를 저장했습니다. 아래 버튼으로 팀즈 채팅을 열고, 저장한 <b>${esc(tmFile.name)}</b> 파일을 채팅 창에 끌어다 놓으세요.<br><a class="b d" style="display:inline-block;margin-top:8px;text-decoration:none" href="${esc(url)}" target="_blank" rel="noopener">팀즈 채팅 열기</a>`;
+  $('#tmSend').hidden = true; $('#tmDl').hidden = true;
+}
+$('#paTest').onclick = async () => {
+  if (!ST().paUrl) { toast('주소를 먼저 넣으세요'); return; }
+  try { const res = await fetch(ST().paUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileName: '연결시험.txt', fileContent: btoa('test'), message: '제품 제안 대시보드 연결 시험입니다.', recipients: ST().teamsTo || '', title: '연결 시험' }) }); toast(res.ok ? '연결 성공 — 팀즈를 확인하세요' : '응답 오류 HTTP ' + res.status, 4000); }
+  catch (e) { toast('연결 실패: ' + e.message, 4000); }
+};
+
+/* =================== 설정 탭 =================== */
+const setKeys = ['fxUsd', 'fxCny', 'costImport', 'costAgent', 'costDomestic', 'sga', 'op', 'consumerMult', 'method', 'roundUnit', 'footerOrg', 'paUrl', 'teamsTo', 'internalNames'];
+function parseFx() { return lines(ST().fxTable).map(l => l.split(/[,\t ]+/)).filter(a => /^\d{4}-\d{2}$/.test(a[0])).map(a => ({ m: a[0], usd: num(a[1]), cny: num(a[2]) })); }
+function renderSettings() {
+  const s = ST(); setKeys.forEach(k => { const el = $('#' + k); if (el) el.value = s[k]; });
+  $('#fxTable').value = s.fxTable; $('#exInternal').checked = !!s.exInternal;
+  const fx = parseFx(); $('#fxMonth').innerHTML = fx.map(f => `<option ${f.m === s.fxMonth ? 'selected' : ''}>${f.m}</option>`).join('') + `<option value="직접" ${!fx.some(f => f.m === s.fxMonth) ? 'selected' : ''}>직접 입력</option>`;
+}
+setKeys.forEach(k => { const el = $('#' + k); if (!el) return; el.addEventListener('input', () => { S.settings[k] = el.value; if (k === 'fxUsd' || k === 'fxCny') { S.settings.fxMonth = '직접'; $('#fxMonth').value = '직접'; } save(); renderHdr(); if (k === 'internalNames') rebuildD(); }); });
+$('#fxMonth').addEventListener('change', e => { const f = parseFx().find(x => x.m === e.target.value); S.settings.fxMonth = e.target.value; if (f) { S.settings.fxUsd = f.usd; S.settings.fxCny = f.cny; } save(); renderSettings(); renderHdr(); });
+$('#fxTable').addEventListener('change', e => { S.settings.fxTable = e.target.value; const fx = parseFx(); const last = fx[fx.length - 1]; if (last && S.settings.fxMonth !== '직접') { const f = fx.find(x => x.m === S.settings.fxMonth) || last; S.settings.fxMonth = f.m; S.settings.fxUsd = f.usd; S.settings.fxCny = f.cny; } save(); renderSettings(); renderHdr(); });
+$('#exInternal').addEventListener('change', e => { S.settings.exInternal = e.target.checked; save(); rebuildD(); });
+async function rebuildD() { const raw = await KV.get('raw'); buildD(raw); renderDataStatus(); }
+function renderDataStatus() {
+  if (!D) { $('#dataStatus').innerHTML = '<span class="red">아직 연결된 MMS 파일이 없습니다.</span> 파일 없이도 판매가 산출 · 제안서는 쓸 수 있고, 부품 대체는 값을 직접 넣으면 됩니다.'; return; }
+  const m = D.meta; const n = Object.keys(D.items).length;
+  $('#dataStatus').innerHTML = `품목 <b>${n.toLocaleString()}</b>개 ·
+    구매현황 ${D.files.buy ? `<b>${esc(D.files.buy)}</b> (마지막 일자 ${m.buyAsOf})` : '<span class="red">없음</span>'} ·
+    판매현황 ${D.files.sell ? `<b>${esc(D.files.sell)}</b> (마지막 일자 ${m.sellAsOf}, 사용량 기간 ${m.win[0]}~${m.win[1]})` : '<span class="red">없음</span>'} ·
+    BOM ${D.files.bom ? `<b>${esc(D.files.bom)}</b> (생산품목 ${m.bomCount.toLocaleString()}개)` : '<span class="red">없음</span>'}<br><span class="mut">MMS 파일은 매시간 바뀝니다. 최신 숫자가 필요하면 같은 파일을 다시 넣으세요.</span>`;
+}
+const drop = $('#drop');
+$('#pickFiles').onclick = () => $('#fileIn').click();
+$('#fileIn').onchange = e => { if (e.target.files.length) loadFiles([...e.target.files]); };
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { const fs = [...e.dataTransfer.files].filter(f => /\.xlsx?$/i.test(f.name)); if (fs.length) loadFiles(fs); });
+$('#expJson').onclick = () => downloadBlob(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }), `제품제안대시보드_백업_${today()}.json`);
+$('#impJson').onclick = () => $('#impFile').click();
+$('#impFile').onchange = async e => { try { const o = JSON.parse(await e.target.files[0].text()); if (!o.settings || !o.priceRows) throw new Error('형식이 다릅니다'); S = o; save(); renderAll(); toast('가져왔습니다'); } catch (err) { toast('가져오지 못했습니다: ' + err.message, 5000); } };
+$('#resetAll').onclick = async () => { if (!(await ask('입력한 내용을 모두 지우고 처음 상태로 되돌릴까요? MMS 데이터는 그대로 둡니다.', '초기화'))) return; S = freshState(); save(); renderAll(); toast('처음 상태로 되돌렸습니다'); };
+
+function renderHdr() { const s = ST(); $('#hdrMeta').textContent = `${s.fxMonth === '직접' ? '직접 입력' : s.fxMonth} · USD ${num(s.fxUsd).toFixed(2)} · CNY ${num(s.fxCny).toFixed(2)} · 판관비 ${s.sga}% · 영업이익 ${s.op}%`; renderPriceFlow(); }
+function renderAll() { renderSettings(); renderHdr(); renderDataStatus(); renderPrice(); renderSub(); renderProp(); }
+document.addEventListener('change', e => { if (setKeys.includes(e.target.id) || e.target.id === 'fxMonth' || e.target.id === 'fxTable') renderPrice(); });
+
+(async function init() {
+  const st = await KV.get('state');
+  S = st && st.settings ? st : freshState();
+  S.settings = Object.assign(defaultSettings(), S.settings);
+  buildD(await KV.get('raw'));
+  renderAll();
+})();
+</script>
+</body>
+</html>
