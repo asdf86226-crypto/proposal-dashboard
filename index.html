@@ -1372,8 +1372,8 @@ async function buildSubPpt() {
     const rows = x.items.map((p, i) => prow(p, R.parts[i], i));
     const sumRow = [{ text: '' }, { text: `합계 ${R.n}개 품목${R.other ? ` · 공통 투자 ${won(R.other)}원` : ''}`, options: { bold: true, colspan: 3 } }, { text: '' }, { text: '' }, { text: '' }, { text: '' }, { text: won(R.invest), options: { bold: true, align: 'right' } }, { text: won(R.annual), options: { bold: true, align: 'right', color: C.teal } }];
     // 품목이 많으면 표만 따로 장을 나눔
-    const fitOne = rows.length <= 5;
-    const chunks = []; for (let i = 0; i < rows.length; i += fitOne ? 5 : 11) chunks.push(rows.slice(i, i + (fitOne ? 5 : 11)));
+    const fitOne = rows.length <= 6;
+    const chunks = []; for (let i = 0; i < rows.length; i += fitOne ? 6 : 11) chunks.push(rows.slice(i, i + (fitOne ? 6 : 11)));
     if (!fitOne) chunks.forEach((ch, ci) => { const s = base(pres, 'PART REPLACEMENT', `${x.title} — 대체 품목 (${ci + 1}/${chunks.length})`, ++pg, foot); s.addTable([head, ...ch, ...(ci === chunks.length - 1 ? [sumRow] : [])], tblOpt(colW, 1.2, 0.3)); });
     const s = base(pres, 'PART REPLACEMENT', fitOne ? x.title : `${x.title} — 요약`, ++pg, foot);
     let y = 1.2;
@@ -1387,14 +1387,8 @@ async function buildSubPpt() {
     const kw = 1.72;
     k.forEach((kk, i) => { const cx = 0.5 + i * (kw + 0.1); const hl = i === 2 || i === 4; box(s, cx, y, kw, 0.6, hl ? C.tealSoft : C.bg, null); T(s, kk[0], cx + 0.1, y + 0.05, kw - 0.2, 0.16, { fontSize: 7, color: C.soft }); T(s, kk[1], cx + 0.1, y + 0.2, kw - 0.2, 0.24, { fontSize: 12.5, bold: true, color: hl ? C.teal : C.ink }); T(s, kk[2], cx + 0.1, y + 0.44, kw - 0.2, 0.13, { fontSize: 6, color: C.mut }); });
     y += 0.72;
-    const ch = 5.15 - y - 0.2;
-    if (R.annual && ch > 0.8) {
-      const labels = Array.from({ length: 36 }, (_, i) => String(i + 1)); const mon = R.annual / 12; const vals = labels.map((_, i) => Math.round(mon * (i + 1) - R.invest));
-      T(s, '누적 손익 (원, 36개월)  —  0을 넘는 달이 투자 회수 시점', 0.5, y, 6, 0.2, { fontSize: 8.5, bold: true });
-      s.addChart('bar', [{ name: '회수 전', labels, values: vals.map(v => Math.min(v, 0)) }, { name: '회수 후', labels, values: vals.map(v => Math.max(v, 0)) }], { x: 0.4, y: y + 0.2, w: 6.4, h: ch, barDir: 'col', barGrouping: 'stacked', chartColors: [C.red, C.teal], invertIfNegative: false, barGapWidthPct: 30, catAxisLabelFontSize: 6, valAxisLabelFontSize: 6, valAxisLabelFormatCode: '#,##0', catAxisLabelFontFace: FONT, valAxisLabelFontFace: FONT, valGridLine: { color: 'E6EAED', size: 0.5 }, showLegend: false, catAxisLineShow: false });
-    }
-    box(s, 6.95, y, 2.55, 5.15 - y, C.bg, null); T(s, '메모', 7.1, y + 0.08, 2.3, 0.2, { fontSize: 8.5, bold: true, color: C.teal });
-    T(s, [x.note, D ? `MMS 기준: 구매 ${D.meta.buyAsOf || '–'} · 판매 ${D.meta.sellAsOf || '–'}${D.meta.win ? `, 사용량 ${D.meta.win[0]}~${D.meta.win[1]}` : ''}` : ''].filter(Boolean).join('\n\n'), 7.1, y + 0.32, 2.3, 5.15 - y - 0.4, { fontSize: 7.5, color: C.ink });
+    const memo = [x.note, D ? `MMS 기준: 구매 ${D.meta.buyAsOf || '–'} · 판매 ${D.meta.sellAsOf || '–'}${D.meta.win ? `, 사용량 ${D.meta.win[0]}~${D.meta.win[1]}` : ''}` : ''].filter(Boolean).join('\n\n');
+    if (5.15 - y > 0.45) { box(s, 0.5, y, 9, 5.15 - y, C.bg, null); T(s, '메모', 0.65, y + 0.08, 8.7, 0.2, { fontSize: 8.5, bold: true, color: C.teal }); T(s, memo, 0.65, y + 0.32, 8.7, 5.15 - y - 0.4, { fontSize: 8, color: C.ink }); }
   }
   return finish(pres, `부품대체검토_${list.length === 1 ? (list[0].title || '') : list.length + '건'}_${today()}`.replace(/\s+/g, '_'), title);
 }
