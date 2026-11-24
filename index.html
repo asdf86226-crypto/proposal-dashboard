@@ -173,8 +173,13 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
   <div class="card">
     <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>판매가 건</h2><button class="b" id="psNew">+ 새 건</button></div>
     <div class="list" id="psList"></div>
-    <div class="row" style="margin-top:12px"><button class="b" id="psDup">복제</button></div>
-    <p class="hint" style="margin-top:6px">건마다 품목 표가 따로 저장됩니다. 비슷한 건은 복제해서 고치면 빠릅니다.</p>
+    <div class="row" style="margin-top:12px;flex-direction:column;align-items:stretch">
+      <button class="b p" id="pricePpt">PPT 만들기</button>
+      <button class="b d" id="priceTeams">팀즈로 보내기</button>
+      <button class="b" id="psToProp" title="이 건의 품목 · 입고가 · 사진으로 신규 제안서를 만듭니다">→ 이 건으로 신규 제안서</button>
+      <button class="b" id="psDup">복제</button>
+    </div>
+    <p class="hint" style="margin-top:6px">PPT는 '보고'에 체크한 품목으로 만듭니다. 건마다 품목 표가 따로 저장되니, 비슷한 건은 복제해서 고치면 빠릅니다.</p>
   </div>
   <div>
   <div class="card">
@@ -187,9 +192,6 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
       <div class="row">
         <button class="b" id="priceAdd">+ 품목 추가</button>
         <button class="b" id="pricePaste">엑셀에서 붙여넣기</button>
-        <button class="b p" id="pricePpt">유통가 제안 PPT</button>
-        <button class="b d" id="priceTeams">팀즈로 보내기</button>
-        <button class="b" id="psToProp" title="이 건의 품목 · 입고가 · 사진으로 신규 제안서를 만듭니다">→ 이 건으로 신규 제안서</button>
       </div>
     </div>
     <div class="tbl-wrap">
@@ -212,9 +214,10 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
     <div class="card">
       <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>검토 목록</h2><button class="b" id="subNew">+ 새 검토</button></div>
       <div class="list" id="subList"></div>
-      <div class="row" style="margin-top:12px">
+      <div class="row" style="margin-top:12px;flex-direction:column;align-items:stretch">
         <button class="b p" id="subPpt">PPT 만들기</button>
         <button class="b d" id="subTeams">팀즈로 보내기</button>
+        <button class="b" id="subDup">복제</button>
       </div>
       <p class="hint" style="margin-top:6px">체크한 검토를 한 파일로 묶습니다. 체크가 없으면 선택한 검토만 만듭니다.</p>
     </div>
@@ -982,6 +985,7 @@ $('#subList').addEventListener('click', e => {
   if (e.target.matches('[data-del]')) { ask(`'${s.title}' 검토를 지울까요?`, '지우기').then(ok => { if (!ok) return; S.subs = S.subs.filter(x => x !== s); if (S.curSub === s.id) S.curSub = (S.subs[0] || {}).id; save(); renderSub(); }); return; }
   S.curSub = s.id; save(); renderSub();
 });
+$('#subDup').onclick = () => { const s0 = curS(); if (!s0) return; const c = JSON.parse(JSON.stringify(s0)); c.id = uid(); c.title += ' (복사본)'; c.pick = false; c.items.forEach(p => p.id = uid()); c.curPart = c.items[0].id; S.subs.unshift(c); S.curSub = c.id; save(); renderSub(); };
 $('#subNew').onclick = () => { const s = newSub(); S.subs.unshift(s); S.curSub = s.id; save(); renderSub(); };
 
 function partRow(p, i, sel) {
