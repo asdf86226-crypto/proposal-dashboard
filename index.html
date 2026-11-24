@@ -983,8 +983,7 @@ function renderSubResult() {
     <div class="kpi ${ok ? 'hl' : 'bad'}"><div class="l">회수 기간</div><div class="v">${isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월' : (R.invest ? '회수 불가' : '–')}</div><div class="s">${R.n > 1 ? '전체 품목 절감액 합계 기준' : `월 ${one && isFinite(one.qty) ? Math.round(one.qty / 12).toLocaleString() : '–'}개 사용 기준`}</div></div>
     <div class="kpi"><div class="l">연간 절감액</div><div class="v">${won(R.annual)}원</div><div class="s">3년 순이익 ${won(R.net3)}원</div></div>
     <div class="kpi"><div class="l">이익률${R.n > 1 ? ' (판매액 가중)' : ` (판매단가 ${won(one.sell)}원)`}</div><div class="v">${pct(R.mBefore)} → <span class="teal">${pct(R.mAfter)}</span></div><div class="s">${isFinite(R.mAfter) ? '+' + ((R.mAfter - R.mBefore) * 100).toFixed(1) + '%p 개선' : '판매단가를 넣으세요'}</div></div>
-   </div>
-   <h3>누적 손익 (36개월)</h3>${paybackSvg(R)}`;
+   </div>`;
   renderUsage();
 }
 function paybackSvg(R) {
