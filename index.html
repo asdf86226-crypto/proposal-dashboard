@@ -282,7 +282,8 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
 
   <div class="card">
     <h2>팀즈 보내기 설정</h2>
-    <p class="hint"><b>링크(claude.ai)로 연 대시보드에서는 보안 정책상 자동 발송이 막혀 있어</b> 'PPT 저장 → 팀즈 채팅 열기' 방식으로 동작합니다. 자동 발송은 HTML 파일로 열었을 때만 됩니다.</p>
+    <p class="hint"><b>기본: 회사 계정으로 바로 보내기</b> — 쉐어포인트 연결과 같은 로그인으로, PPT를 내 원드라이브 /제품제안 폴더에 올리고 받는 사람마다 1:1 팀즈 채팅에 파일을 첨부해 보냅니다. 따로 설정할 것이 없습니다. (처음 한 번 팀즈 · 원드라이브 권한 승인 창이 뜹니다)</p>
+    <p class="hint">아래 파워오토메이트 주소는 <b>채널로 보내는 등 다른 흐름을 쓰고 싶을 때만</b> 넣으세요. 주소가 있으면 그 흐름으로 보냅니다.</p>
     <p class="hint">파워오토메이트 흐름 주소를 넣으면 'PPT를 원드라이브에 저장 → 받는 사람에게 팀즈 채팅으로 링크 발송'까지 버튼 한 번으로 끝납니다. 비워 두면 PPT를 내려받고 팀즈 채팅 창을 열어 주므로, 파일을 끌어다 놓아 보내면 됩니다.</p>
     <div class="row">
       <div class="fld" style="flex:1;min-width:260px"><label>파워오토메이트 HTTP 주소</label><input id="paUrl" placeholder="https://prod-xx.koreacentral.logic.azure.com/workflows/..." style="width:100%"></div>
@@ -1678,10 +1679,91 @@ async function downloadBlob(blob, name) {
   const dl = await dlNs();
   if (dl) { try { await dl.save({ filename: name, data: blob }); toast(`${name} 저장`); } catch (e) { toast(e && e.code === 'declined' ? '저장을 취소했습니다' : '저장하지 못했습니다: ' + ((e && (e.message || e.code)) || e), 4000); } return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); toast(`${name} 저장`); }
+/* ---------- 팀즈로 바로 보내기 (회사 계정 · Microsoft Graph) ----------
+ * 쉐어포인트 연결과 같은 앱 등록(mms-sharepoint.js 의 clientId)으로 로그인해서
+ * ① 내 원드라이브 /제품제안 에 PPT 올리기 → ② 받는 사람에게 보기 권한 → ③ 1:1 팀즈 채팅에 메시지 + 파일 첨부. */
+const TG = (() => {
+  const SCOPES = ['User.Read', 'Files.ReadWrite', 'Chat.Create', 'ChatMessage.Send'];
+  const G = 'https://graph.microsoft.com/v1.0';
+  let appP = null;
+  const ok = () => !!(window.MmsSp && window.MmsSp.CFG);
+  function loadMsal() {
+    if (window.msal) return Promise.resolve();
+    return new Promise((res, rej) => { const s = document.createElement('script'); s.src = window.MMS_SP_MSAL_SRC || 'vendor/msal-browser.min.js'; s.onload = res; s.onerror = () => rej(new Error('로그인 도구를 불러오지 못했습니다')); document.head.appendChild(s); });
+  }
+  function app() {
+    if (!appP) appP = (async () => {
+      await loadMsal(); const C = window.MmsSp.CFG;
+      const a = new msal.PublicClientApplication({ auth: { clientId: C.clientId, authority: 'https://login.microsoftonline.com/' + C.tenantId, redirectUri: C.redirect }, cache: { cacheLocation: 'localStorage' } });
+      await a.initialize(); return a;
+    })().catch(e => { appP = null; throw e; });
+    return appP;
+  }
+  async function token() {
+    const a = await app(); const C = window.MmsSp.CFG; const acc = a.getAllAccounts().find(x => x.tenantId === C.tenantId);
+    if (acc) { try { return (await a.acquireTokenSilent({ scopes: SCOPES, account: acc })).accessToken; } catch (e) { } }
+    return (await a.acquireTokenPopup({ scopes: SCOPES, account: acc || undefined, prompt: acc ? undefined : 'select_account' })).accessToken;
+  }
+  async function call(t, method, url, body, raw) {
+    const res = await fetch(url.startsWith('http') ? url : G + url, { method, headers: Object.assign({ Authorization: 'Bearer ' + t }, raw ? {} : { 'Content-Type': 'application/json' }), body: raw ? body : body ? JSON.stringify(body) : undefined });
+    if (!res.ok) { let m = ''; try { const j = await res.json(); m = j.error && (j.error.code + ': ' + j.error.message); } catch (e) { } const er = new Error(`${method} ${url.split('?')[0].replace(G, '')} — ${res.status}${m ? ' ' + m : ''}`); er.status = res.status; throw er; }
+    return res.status === 204 ? null : res.json();
+  }
+  async function upload(t, blob, name) {
+    const path = `/me/drive/root:/${encodeURIComponent('제품제안')}/${encodeURIComponent(name)}`;
+    if (blob.size < 4e6) return call(t, 'PUT', `${path}:/content?@microsoft.graph.conflictBehavior=rename`, blob, true);
+    const ses = await call(t, 'POST', `${path}:/createUploadSession`, { item: { '@microsoft.graph.conflictBehavior': 'rename' } });
+    const CH = 320 * 1024 * 10; let item = null;
+    for (let i = 0; i < blob.size; i += CH) {
+      const part = blob.slice(i, Math.min(blob.size, i + CH));
+      const res = await fetch(ses.uploadUrl, { method: 'PUT', headers: { 'Content-Range': `bytes ${i}-${i + part.size - 1}/${blob.size}` }, body: part });
+      if (!res.ok && res.status !== 202) throw new Error('파일 올리기 실패 ' + res.status);
+      if (res.status === 200 || res.status === 201) item = await res.json();
+    }
+    return item;
+  }
+  async function send(file, to, msg, onStep) {
+    const t = await token();
+    onStep('계정 확인'); const me = await call(t, 'GET', '/me?$select=id,mail,userPrincipalName,displayName');
+    const mine = [me.mail, me.userPrincipalName].filter(Boolean).map(x => x.toLowerCase());
+    const others = to.filter(x => !mine.includes(x.toLowerCase()));
+    if (!others.length) throw Object.assign(new Error('본인에게는 팀즈 채팅을 보낼 수 없습니다. 받는 사람에 다른 분 메일을 넣어 주세요.'), { self: true });
+    onStep('원드라이브에 올리는 중'); const item = await upload(t, file.blob, file.name);
+    onStep('보기 권한 주는 중'); await call(t, 'POST', `/me/drive/items/${item.id}/invite`, { requireSignIn: true, sendInvitation: false, roles: ['read'], recipients: others.map(email => ({ email })) });
+    const guid = (String(item.eTag || '').match(/[0-9a-f-]{36}/i) || [])[0] || item.id;
+    const html = esc(msg).replace(/\n/g, '<br>');
+    const done = [];
+    for (const who of others) {
+      onStep(`${who} 에게 보내는 중`);
+      const chat = await call(t, 'POST', '/chats', { chatType: 'oneOnOne', members: [
+        { '@odata.type': '#microsoft.graph.aadUserConversationMember', roles: ['owner'], 'user@odata.bind': `${G}/users('${me.id}')` },
+        { '@odata.type': '#microsoft.graph.aadUserConversationMember', roles: ['owner'], 'user@odata.bind': `${G}/users('${who}')` }] });
+      await call(t, 'POST', `/chats/${chat.id}/messages`, { body: { contentType: 'html', content: `${html}<br><attachment id="${guid}"></attachment>` }, attachments: [{ id: guid, contentType: 'reference', contentUrl: item.webUrl, name: item.name }] });
+      done.push(who);
+    }
+    return { item, done };
+  }
+  function errorText(e) {
+    const s = String((e && (e.errorCode || '')) + ' ' + (e && e.message || e));
+    if (e && e.self) return e.message;
+    if (/user_cancelled|user_canceled/.test(s)) return '';
+    if (/popup_window_error|empty_window_error|popup.*block/i.test(s)) return '로그인 창(팝업)이 차단됐어요. 주소창 오른쪽의 팝업 차단을 "항상 허용"으로 바꾼 뒤 다시 보내 주세요.';
+    if (/AADSTS65001|AADSTS90094|consent|admin/i.test(s)) return '팀즈 · 원드라이브 권한에 회사 관리자 승인이 필요해요. 앱 등록 → API 권한에 Microsoft Graph 위임 권한 Files.ReadWrite · Chat.Create · ChatMessage.Send 를 추가하고 "관리자 동의 허용"을 눌러 달라고 요청해 주세요.';
+    if (e && e.status === 404 && /users\(/.test(s)) return '받는 사람 메일을 회사 계정에서 찾지 못했어요. 주소를 확인해 주세요.';
+    if (e && e.status === 403) return '권한이 없어 보내지 못했어요 (' + s.trim().slice(0, 160) + ')';
+    return s.trim().slice(0, 300);
+  }
+  return { ok, send, errorText };
+})();
+
 let tmFile = null;
+const teamsMode = () => ST().paUrl ? 'pa' : TG.ok() ? 'graph' : 'manual';
 function openTeams(f, msg) {
   tmFile = f; $('#tmFile').textContent = f.name; $('#tmTo').value = ST().teamsTo || ''; $('#tmMsg').value = msg;
-  $('#tmHow').innerHTML = ST().paUrl ? '파워오토메이트로 원드라이브 <b>/제품제안</b> 폴더에 저장하고, 받는 사람에게 팀즈 채팅으로 링크를 보냅니다.' : '파워오토메이트 주소가 없어 <b>PPT를 내려받고 팀즈 채팅 창을 엽니다</b>. 열린 채팅에 내려받은 파일을 끌어다 놓으세요. (자동 발송은 데이터 · 설정 탭에서 설정)';
+  const mode = teamsMode();
+  $('#tmHow').innerHTML = mode === 'graph' ? '회사 계정으로 <b>바로 보냅니다</b> — PPT를 내 원드라이브 <b>/제품제안</b> 폴더에 올리고, 받는 사람마다 1:1 팀즈 채팅에 메시지와 <b>파일을 첨부</b>해 보냅니다. 처음 한 번은 팀즈 · 원드라이브 권한을 묻는 창이 뜹니다.'
+    : mode === 'pa' ? '파워오토메이트로 원드라이브 <b>/제품제안</b> 폴더에 저장하고, 받는 사람에게 팀즈 채팅으로 링크를 보냅니다.'
+    : '이 화면(파일로 연 대시보드)에서는 자동 발송이 안 돼서 <b>PPT를 내려받고 팀즈 채팅 창을 엽니다</b>. 열린 채팅에 파일을 끌어다 놓으세요. GitHub 주소로 열면 자동으로 보냅니다.';
   $('#tmSend').hidden = false; $('#tmDl').hidden = false;
   $('#dlgTeams').showModal();
 }
@@ -1691,6 +1773,17 @@ $('#tmSend').onclick = async () => {
   const to = $('#tmTo').value.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean); const msg = $('#tmMsg').value;
   if (!to.length) { toast('받는 사람 메일을 넣으세요'); return; }
   if (ST().teamsTo !== $('#tmTo').value) { S.settings.teamsTo = $('#tmTo').value; save(); }
+  if (teamsMode() === 'graph') {
+    const btn = $('#tmSend'); btn.disabled = true; btn.textContent = '보내는 중…';
+    try {
+      const r = await TG.send(tmFile, to, msg, step => { $('#tmHow').innerHTML = `보내는 중 — ${esc(step)}…`; });
+      $('#dlgTeams').close(); toast(`팀즈로 보냈습니다 (${r.done.length}명) — 파일은 내 원드라이브 /제품제안/${r.item.name}`, 5000);
+    } catch (err) {
+      const t = TG.errorText(err); if (!t) { $('#tmHow').textContent = '로그인을 취소했습니다.'; return; }
+      $('#tmHow').innerHTML = `<span class="red">${esc(t)}</span><br>PPT만 내려받으려면 'PPT만 내려받기'를 누르세요.`;
+    } finally { btn.disabled = false; btn.textContent = '보내기'; }
+    return;
+  }
   if (ST().paUrl) {
     $('#tmSend').disabled = true; $('#tmSend').textContent = '보내는 중…';
     try {
