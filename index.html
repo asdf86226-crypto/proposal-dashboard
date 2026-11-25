@@ -1803,13 +1803,27 @@ async function buildPricePpt() {
     if (hasImg) rows.slice(i, i + per).forEach((r, j) => { if (r.img) addImg(s, r.img, 0.53, 1.2 + rh * (j + 1) + 0.03, 0.49, rh - 0.06); });
     T(s, `매입원가 = 외화 단가 × 환율 × (1 + 부대비용) · 대리점가 = 매입원가 ÷ (1 − 판관비 ${st.sga}% − 영업이익률) ${st.roundUnit}원 올림 · 소비자가 = 대리점가 × ${st.consumerMult} · 부가세 별도`, 0.5, 4.95, 9, 0.2, { fontSize: 7, color: C.soft });
   }
-  // 이익률별 단가표
-  const s = base(pres, 'GUIDE', '영업이익률별 대리점가 — 영업 협상용', ++pg, foot);
-  const ops = [5, 10, 15, num(st.op), 25, 30].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
-  const hd = ['품목코드', 'BEP', ...ops.map(o => `이익 ${o}%`)].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: k >= 2 && ops[k - 2] === num(st.op) ? C.teal : C.ink }, align: k ? 'right' : 'left' } }));
-  const body = rows.slice(0, 13).map(r => { const c = priceRowCalc(r); return [{ text: r.code || r.name, options: { bold: true } }, { text: won(c.bep), options: { align: 'right', color: C.soft } }, ...ops.map(o => ({ text: won(priceOf(c.cost, r.sga, o).base), options: { align: 'right', bold: o === num(st.op), color: o === num(st.op) ? C.teal : C.ink } }))]; });
-  s.addTable([hd, ...body], { x: 0.5, y: 1.2, w: 9, colW: [1.8, 1.0, ...ops.map(() => 6.2 / ops.length)], rowH: 0.27, fontFace: FONT, fontSize: 8.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
-  T(s, 'BEP 아래로 팔면 팔수록 손해입니다. 청록 열이 제안 대리점가(최저가)이며, 이익률을 올려 더 높은 단가로 협상할 수 있습니다.', 0.5, 4.95, 9, 0.2, { fontSize: 7.5, color: C.soft });
+  // 이익률별 대리점가 — 화면과 같은 카드 모양, 한 장에 3개 품목
+  const per3 = 3;
+  for (let i = 0; i < rows.length; i += per3) {
+    const s = base(pres, 'GUIDE', `영업이익률별 대리점가${rows.length > per3 ? ` (${i + 1}~${Math.min(rows.length, i + per3)} / ${rows.length})` : ''}`, ++pg, foot);
+    rows.slice(i, i + per3).forEach((r, j) => {
+      const c = priceRowCalc(r); const y = 1.15 + j * 1.25;
+      const target = isFinite(num(r.op)) ? num(r.op) : num(st.op);
+      const steps = [...new Set([0, 5, 10, 15, target, 25, 30, 35].map(x => Math.round(x * 10) / 10))].sort((a, b) => a - b).slice(0, 9);
+      T(s, [{ text: cut(`${r.name || ''} ${r.code || ''}`.trim() || '품목', 40), options: { bold: true, fontSize: 11 } }, { text: `   매입원가 ${won(c.cost)}원 · BEP ${won(c.bep)}원`, options: { fontSize: 8.5, color: C.soft } }], 0.5, y, 9, 0.26, { valign: 'middle' });
+      if (r.img) addImg(s, r.img, 9.05, y - 0.02, 0.45, 0.3);
+      const n = steps.length, gap = 0.08, w = (9 - gap * (n - 1)) / n;
+      steps.forEach((op, k) => {
+        const p = priceOf(c.cost, r.sga, op); const on = op === target; const x = 0.5 + k * (w + gap);
+        box(s, x, y + 0.32, w, 0.78, on ? C.tealSoft : 'FFFFFF', on ? C.teal : C.line, 0.06);
+        T(s, `영업이익 ${op}%`, x, y + 0.37, w, 0.18, { fontSize: 7.5, color: C.soft, align: 'center' });
+        T(s, won(p.base), x, y + 0.55, w, 0.28, { fontSize: 13, bold: true, color: on ? C.teal : C.ink, align: 'center', valign: 'middle' });
+        T(s, `소비자가 ${won(roundUp(p.base * num(st.consumerMult)))}`, x, y + 0.85, w, 0.18, { fontSize: 7, color: C.soft, align: 'center' });
+      });
+    });
+    T(s, '대리점가는 제안하는 최저가입니다. 이익률을 올리면(더 비싸게) · 내리면(더 싸게) 단가가 이렇게 바뀝니다. 강조한 칸이 제안 대리점가입니다.', 0.5, 4.98, 9, 0.2, { fontSize: 7.5, color: C.soft });
+  }
   return finish(pres, `유통가제안_${title}_${today()}`.replace(/\s+/g, '_'), title);
 }
 
