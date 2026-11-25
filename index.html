@@ -133,6 +133,7 @@ dialog .ft{padding:12px 18px;display:flex;gap:8px;justify-content:flex-end;borde
 .chips .empty{font-size:12px;color:var(--muted)}
 .exprev{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);display:flex;flex-direction:column;gap:8px;min-width:0}
 .exc{background:var(--hdr);color:var(--hdr-fg);border-radius:6px;padding:10px 12px;font-weight:700;font-size:14px}
+.exc2{font-size:13px;font-weight:600;color:var(--hdr-k);margin-top:3px}
 .exask{background:var(--teal-soft);border:1px solid var(--teal-edge);border-radius:6px;padding:8px 12px;font-size:13px}
 .exask b{color:var(--teal);margin-right:6px}
 .exr{border-left:3px solid var(--red);padding:3px 8px;margin-top:6px;font-size:12.5px}
@@ -1526,7 +1527,7 @@ function priceExec(ps) {
   if (thin.length) risks.push(['낮은 이익률', `${thin.slice(0, 3).join(', ')}${thin.length > 3 ? ' 외' : ''} — 영업이익률 10% 미만`]);
   risks.push(...exLines(E.risk));
   return {
-    conclusion: `${ps.title}: ${rows.length}개 품목 대리점가 제안 — 예상 매출 ${krw(sales)} · 영업이익 ${krw(op)} (${pct(rate)})`,
+    conclusion: [ps.title, `${rows.length}개 품목 대리점가 제안  ·  예상 매출 ${krw(sales)}  ·  영업이익 ${krw(op)} (${pct(rate)})`],
     ask: E.ask || '대리점가(제안 최저가) 기준 영업 단가 검토 요청',
     kpis: priceTypeKpis(rows), plain: true,
     risks: risks.slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['영업팀 단가 검토 · 확정', '거래처 견적 제출 · 단가 등록']
@@ -1549,7 +1550,7 @@ function subExec(s, R) {
   if (R.parts.some(r => isFinite(r.save1) && r.save1 <= 0)) risks.push(['단가 상승 품목', '신규 단가가 더 비싼 품목 포함 — 품목별 재검토']);
   risks.push(...exLines(E.risk));
   return {
-    conclusion: ok ? `${s.title}: 투자 ${krw(R.invest)} → 연 ${krw(R.annual)} 절감, ${isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월에 회수' : '회수 기간 계산 불가'}` : `${s.title}: 절감 효과 없음 — 진행 여부 재검토 필요`,
+    conclusion: [s.title, ok ? `투자 ${krw(R.invest)}  →  연 ${krw(R.annual)} 절감  ·  ${isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월에 회수' : '회수 기간 계산 불가'}` : '절감 효과 없음  ·  진행 여부 재검토 필요'],
     ask: E.ask || (ok ? '신규 업체 전환 및 금형 투자 검토 요청' : '견적 재협상 또는 진행 여부 검토 요청'),
     kpis: [['총 투자', krw(R.invest), `금형 ${krw(R.invest - R.other)} · 공통 ${krw(R.other)}`], ['연간 절감액', krw(R.annual), `매입비 ${pct(R.saveRate)} 절감 · 3년 순이익 ${krw(R.net3)}`], ['회수 기간', isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월' : '회수 불가', `이익률 ${pct(R.mBefore)} → ${pct(R.mAfter)}`]],
     risks: risks.slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['신규 업체 샘플 입수 · 테스트', '금형 발주', '양산 전환 · 기존 재고 소진']
@@ -1572,7 +1573,7 @@ function propExec(p) {
   if (thinSet) risks.push(['낮은 마진 세트', `${thinSet} — 별도 가격대 검토`]);
   risks.push(...exLines(E.risk));
   return {
-    conclusion: `${p.title}: 입고가 ${won(F.c0)}원 → 대리점가 ${won(F.dealer)}원 · 소비자가 ${won(F.consumer)}원 (영업이익 ${ST().op}%)`,
+    conclusion: [p.title, `입고가 ${won(F.c0)}원  →  대리점가 ${won(F.dealer)}원  ·  소비자가 ${won(F.consumer)}원 (영업이익 ${ST().op}%)`],
     ask: E.ask || '라인업 및 초도 발주 검토 요청',
     kpis: [['초도 발주금액', isFinite(init) ? krw(init) : 'MOQ 입력 필요', isFinite(moq) ? `MOQ ${moq.toLocaleString()}개 × ${k}개 모델` : '결론 · 검토 요청 칸에서 MOQ 입력'],
       ['연간 예상 매출', isFinite(sales) ? krw(sales) : '수량 입력 필요', isFinite(qty) ? `${qty.toLocaleString()}개 × 대리점가` : '연간 예상 수량 입력'],
@@ -1583,22 +1584,23 @@ function propExec(p) {
 
 function execSlide(pres, pg, foot, X) {
   const s = base(pres, 'REVIEW', '결론 · 검토 요청', pg, foot);
-  box(s, 0.5, 1.12, 9, 0.56, C.ink, null, 0.04);
-  T(s, X.conclusion, 0.7, 1.12, 8.6, 0.56, { fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle', fit: 'shrink' });
-  box(s, 0.5, 1.78, 9, 0.42, C.tealSoft, 'B7E3E7', 0.04);
-  T(s, '검토 요청', 0.7, 1.78, 1.1, 0.42, { fontSize: 9, bold: true, color: C.teal, valign: 'middle' });
-  T(s, X.ask, 1.8, 1.78, 7.5, 0.42, { fontSize: 11, bold: true, valign: 'middle' });
+  box(s, 0.5, 1.08, 9, 0.74, C.ink, null, 0.04);
+  T(s, cut(X.conclusion[0], 70), 0.7, 1.13, 8.6, 0.3, { fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle' });
+  T(s, X.conclusion[1], 0.7, 1.44, 8.6, 0.3, { fontSize: 11, color: '7FD3DA', bold: true, valign: 'middle' });
+  box(s, 0.5, 1.9, 9, 0.4, C.tealSoft, 'B7E3E7', 0.04);
+  T(s, '검토 요청', 0.7, 1.9, 1.1, 0.4, { fontSize: 9, bold: true, color: C.teal, valign: 'middle' });
+  T(s, X.ask, 1.8, 1.9, 7.5, 0.4, { fontSize: 11, bold: true, valign: 'middle' });
   const kn = X.kpis.length, kw = (9 - (kn - 1) * 0.15) / kn;
   X.kpis.forEach((k, i) => { const x = 0.5 + i * (kw + 0.15); const big = String(k[1]).length > (kn > 3 ? 11 : 14);
-    box(s, x, 2.32, kw, 0.78, C.bg, null); T(s, k[0], x + 0.12, 2.38, kw - 0.24, 0.2, { fontSize: 8, color: C.soft });
-    T(s, k[1], x + 0.12, 2.58, kw - 0.24, 0.32, { fontSize: big ? 13 : kn > 3 ? 15 : 17, bold: true, color: !X.plain && i === 2 ? C.teal : C.ink, valign: 'middle' });
-    T(s, k[2], x + 0.12, 2.9, kw - 0.24, 0.17, { fontSize: 6.5, color: C.mut }); });
-  T(s, '리스크 · 대응', 0.5, 3.22, 5.6, 0.22, { fontSize: 10, bold: true });
-  if (!X.risks.length) T(s, '특이 리스크 없음', 0.5, 3.5, 5.6, 0.3, { fontSize: 9, color: C.soft });
-  X.risks.forEach((r, i) => { const y = 3.5 + i * 0.4; s.addShape('rect', { x: 0.5, y: y + 0.03, w: 0.05, h: 0.3, fill: { color: C.red }, line: { type: 'none' } }); T(s, r[0], 0.65, y, 1.35, 0.36, { fontSize: 8.5, bold: true, valign: 'middle' }); T(s, r[1], 2.0, y, 4.1, 0.36, { fontSize: 8, color: C.ink, valign: 'middle', fit: 'shrink' }); });
-  box(s, 6.4, 3.22, 3.1, 1.88, C.bg, null);
-  T(s, '다음 단계 · 일정', 6.55, 3.3, 2.8, 0.22, { fontSize: 10, bold: true });
-  X.next.slice(0, 5).forEach((t, i) => { const y = 3.6 + i * 0.29; circleNum(s, 6.58, y + 0.02, 0.22, i + 1); T(s, t, 6.88, y, 2.55, 0.27, { fontSize: 8.5, valign: 'middle', fit: 'shrink' }); });
+    box(s, x, 2.4, kw, 0.76, C.bg, null); T(s, k[0], x + 0.12, 2.45, kw - 0.24, 0.2, { fontSize: 8, color: C.soft });
+    T(s, k[1], x + 0.12, 2.64, kw - 0.24, 0.32, { fontSize: big ? 13 : kn > 3 ? 15 : 17, bold: true, color: !X.plain && i === 2 ? C.teal : C.ink, valign: 'middle' });
+    T(s, k[2], x + 0.12, 2.95, kw - 0.24, 0.17, { fontSize: 6.5, color: C.mut }); });
+  T(s, '리스크 · 대응', 0.5, 3.28, 5.6, 0.22, { fontSize: 10, bold: true });
+  if (!X.risks.length) T(s, '특이 리스크 없음', 0.5, 3.56, 5.6, 0.3, { fontSize: 9, color: C.soft });
+  X.risks.forEach((r, i) => { const y = 3.56 + i * 0.38; s.addShape('rect', { x: 0.5, y: y + 0.03, w: 0.05, h: 0.3, fill: { color: C.red }, line: { type: 'none' } }); T(s, r[0], 0.65, y, 1.35, 0.36, { fontSize: 8.5, bold: true, valign: 'middle' }); T(s, r[1], 2.0, y, 4.1, 0.36, { fontSize: 8, color: C.ink, valign: 'middle', fit: 'shrink' }); });
+  box(s, 6.4, 3.28, 3.1, 1.84, C.bg, null);
+  T(s, '다음 단계 · 일정', 6.55, 3.36, 2.8, 0.22, { fontSize: 10, bold: true });
+  X.next.slice(0, 5).forEach((t, i) => { const y = 3.66 + i * 0.28; circleNum(s, 6.58, y + 0.02, 0.22, i + 1); T(s, t, 6.88, y, 2.55, 0.27, { fontSize: 8.5, valign: 'middle', fit: 'shrink' }); });
   return s;
 }
 
@@ -1614,7 +1616,7 @@ function execBoxHtml(E, X, extra) {
     <div class="exprev" data-exprev>${execPreview(X)}</div></div>`;
 }
 function execPreview(X) {
-  return `<div class="exc">${esc(X.conclusion)}</div><div class="exask"><b>검토 요청</b> ${esc(X.ask)}</div>
+  return `<div class="exc">${esc(X.conclusion[0])}<div class="exc2">${esc(X.conclusion[1])}</div></div><div class="exask"><b>검토 요청</b> ${esc(X.ask)}</div>
     <div class="kpis" style="grid-template-columns:repeat(${X.kpis.length},minmax(0,1fr))">${X.kpis.map((k, i) => `<div class="kpi ${!X.plain && i === 2 ? 'hl' : ''}"><div class="l">${esc(k[0])}</div><div class="v" style="font-size:18px">${esc(k[1])}</div><div class="s">${esc(k[2])}</div></div>`).join('')}</div>
     <div class="grid2" style="margin-top:8px;gap:10px"><div><b style="font-size:13px">리스크 · 대응</b>${X.risks.map(r => `<div class="exr"><b>${esc(r[0])}</b> ${esc(r[1])}</div>`).join('') || '<p class="hint">없음</p>'}</div>
     <div><b style="font-size:13px">다음 단계 · 일정</b><ol class="steps">${X.next.map(t => `<li>${esc(t)}</li>`).join('')}</ol></div></div>`;
