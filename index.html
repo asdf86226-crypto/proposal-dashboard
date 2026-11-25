@@ -206,8 +206,8 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
     <p class="hint" style="margin-top:8px">파란 글씨 칸만 입력합니다. 품목코드를 넣으면 이카운트 품명과 최근 매입단가를 불러옵니다(데이터 · 설정 탭에서 MMS 파일을 연결한 경우). 판관비율 · 영업이익률 칸을 비우면 기본값이 적용되고, 대리점가 칸에 값을 넣으면 계산값 대신 그 값을 씁니다. 금액은 모두 부가세 별도입니다.</p>
   </div>
   <div class="card" id="psExecCard">
-    <h2>결론 · 판단 요청 <span class="pill">PPT 2쪽</span></h2>
-    <p class="hint">임원이 먼저 보는 장입니다 — 숫자 · 리스크는 '보고'에 체크한 품목으로 자동 계산되고, 판단 요청 · 일정만 적으면 됩니다.</p>
+    <h2>결론 · 검토 요청 <span class="pill">PPT 2쪽</span></h2>
+    <p class="hint">임원이 먼저 보는 장입니다 — 숫자 · 리스크는 '보고'에 체크한 품목으로 자동 계산되고, 검토 요청 · 일정만 적으면 됩니다.</p>
     <div id="psExec"></div>
   </div>
   <div class="card" id="descCard">
@@ -1055,7 +1055,7 @@ function renderSub() {
     <div class="row" style="margin-top:8px"><button class="b" id="partAdd">+ 품목 추가</button><span class="status" id="partInfo"></span></div>
     <div class="fld" style="margin-top:12px"><label>메모 (PPT에 들어갑니다)</label><textarea data-k="note">${esc(s.note)}</textarea></div>
   </div>
-  <div class="card"><h2>결론 · 판단 요청 <span class="pill">PPT 첫 장</span></h2>
+  <div class="card"><h2>결론 · 검토 요청 <span class="pill">PPT 첫 장</span></h2>
     <p class="hint">임원이 먼저 보는 장입니다 — 투자 · 절감 · 회수, 다른 제품 영향(BOM) · 품질 · 기존 재고 리스크는 자동으로 채워집니다.</p>
     <div id="subExec"></div>
   </div>
@@ -1404,7 +1404,7 @@ function renderProp() {
   <div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(p.title || '제목 없음')}</h2>
     <div class="row"><button class="b p" id="propAuto" title="비어 있는 칸만, 입고가 · 판매가 · 경쟁사 가격 · MMS 실적으로 채웁니다">⚡ 자동 채우기</button><button class="b d" id="propAi" title="Claude에게 문구 초안을 받아 채웁니다">✦ AI 초안 (Claude)</button></div></div>
     <p class="hint" style="margin:6px 0 0">⚡ 자동 채우기는 <b>비어 있는 칸만</b> 숫자로 쓸 수 있는 문장으로 채웁니다. 영업 포인트 · 배경 같은 설명 문구는 ✦ AI 초안을 쓰세요. 칸을 비워 두면 그 장은 PPT에서 빠집니다.</p></div>
-  ${sec('exec', '0. 결론 · 판단 요청 (PPT 2쪽)', `<p class="hint">임원이 먼저 보는 장입니다 — 입고가 · 판매가 · 초도 발주금액 · 연간 예상 이익과 가격 위치 · 환율 · 재고 리스크는 자동으로 채워집니다.</p><div id="propExec"></div>`)}
+  ${sec('exec', '0. 결론 · 검토 요청 (PPT 2쪽)', `<p class="hint">임원이 먼저 보는 장입니다 — 입고가 · 판매가 · 초도 발주금액 · 연간 예상 이익과 가격 위치 · 환율 · 재고 리스크는 자동으로 채워집니다.</p><div id="propExec"></div>`)}
   ${sec('cover', '1. 표지', `<div class="row">${inp('title', '제안서 이름 (파일 이름 · 바닥글)', '', 'flex:1;min-width:260px')}${inp('kicker', '상단 작은 글씨', '', 'width:160px')}</div>
      <div class="grid2" style="margin-top:8px">${ta('coverTitle', '표지 제목 (줄바꿈 가능)', '', 56)}${ta('subtitle', '부제 (줄바꿈 가능)', '', 56)}</div>
      <div class="row" style="margin-top:8px">${inp('from', '보내는 곳 → 받는 곳', '', 'width:200px')}${inp('date', '작성 연월', '', 'width:110px')}${inp('baseDate', '자료 기준일', '', 'width:120px')}</div>
@@ -1491,9 +1491,9 @@ function shrinkImage(file, max) {
 $('#propPpt').onclick = async () => { const f = await buildPropPpt(); if (f) downloadBlob(f.blob, f.name); };
 $('#propTeams').onclick = async () => { const f = await buildPropPpt(); if (f) openTeams(f, `[신규 제품 제안] ${f.title}\n라인업 · 입고가 · 판매가 검토 자료입니다. 검토 후 의견 부탁드립니다.`); };
 
-/* =================== 결론 · 판단 요청 (임원 보고용 첫 장) ===================
- * 임원은 과정보다 영향(비용 · 효과 · 기간) · 리스크 · 판단할 것을 먼저 본다.
- * 세 PPT 모두 표지 다음에 이 장을 넣는다. 숫자 · 리스크는 자동, 판단 요청 · 다음 단계는 입력(비우면 기본 문장). */
+/* =================== 결론 · 검토 요청 (임원 보고용 첫 장) ===================
+ * 임원은 과정보다 영향(비용 · 효과 · 기간) · 리스크 · 검토할 것을 먼저 본다.
+ * 세 PPT 모두 표지 다음에 이 장을 넣는다. 숫자 · 리스크는 자동, 검토 요청 · 다음 단계는 입력(비우면 기본 문장). */
 const krw = v => !isFinite(v) ? '–' : Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(1).replace(/\.0$/, '') + '억 원' : Math.abs(v) >= 1e4 ? Math.round(v / 1e4).toLocaleString() + '만 원' : won(v) + '원';
 const exLines = t => lines(t).map(l => { const m = l.split(/\s+[—\-→]\s+|\s*\|\s*/); return m.length > 1 ? [m[0], m.slice(1).join(' — ')] : [l, '']; });
 function newExec() { return { ask: '', next: '', risk: '', qty: '', moq: '' }; }
@@ -1517,7 +1517,7 @@ function priceExec(ps) {
   risks.push(...exLines(E.risk));
   return {
     conclusion: `${ps.title}: ${rows.length}개 품목 대리점가 제안 — 예상 매출 ${krw(sales)} · 영업이익 ${krw(op)} (${pct(rate)})`,
-    ask: E.ask || '대리점가(제안 최저가) 기준으로 영업 단가 확정',
+    ask: E.ask || '대리점가(제안 최저가) 기준 영업 단가 검토 요청',
     kpis: [['예상 매출', krw(sales), `수량 ${qty.toLocaleString()}개 × 대리점가`], ['예상 영업이익', krw(op), `영업이익률 ${pct(rate)}`],
       fx ? ['환율 +5% 시 영업이익률', pct(rate5), `현재 ${pct(rate)} · ${ST().fxMonth} 환율 기준`] : ['평균 대리점가', won(sales / qty) + '원', `${rows.length}개 품목`]],
     risks: risks.slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['영업팀 단가 검토 · 확정', '거래처 견적 제출 · 단가 등록']
@@ -1532,7 +1532,7 @@ function subExec(s, R) {
   R.parts.forEach(r => (r.us ? r.us.parents : []).forEach(q => { if (q.qty12 > 0) prods.set(q.code, (prods.get(q.code) || { name: q.name, q: 0 })), prods.get(q.code).q += q.qty12; }));
   const top = [...prods.entries()].sort((a, b) => b[1].q - a[1].q);
   const risks = [];
-  if (top.length) risks.push(['다른 제품 영향', `이 부품이 들어가는 제품 ${top.length}종 (${top.slice(0, 2).map(([c, v]) => cut(v.name || c, 22)).join(', ')}${top.length > 2 ? ' 외' : ''}) — 변경 전 해당 제품 품질 · 납품처 승인 확인`]);
+  if (top.length) risks.push(['다른 제품 영향', `이 부품이 들어가는 제품 ${top.length}종 (${top.slice(0, 2).map(([c, v]) => cut(v.name || c, 22)).join(', ')}${top.length > 2 ? ' 외' : ''}) — 변경 전 해당 제품 품질 · 납품처 확인 필요`]);
   risks.push(['품질 검증', '신규 업체 샘플 · 신뢰성 테스트 통과 후 양산 전환']);
   const recent = R.parts.filter(r => r.it && r.it.lastBuy && D && D.meta.buyAsOf && (new Date(D.meta.buyAsOf) - new Date(r.it.lastBuy.date)) / 864e5 < 120);
   if (recent.length) risks.push(['기존 업체 재고', `최근 매입 ${recent.map(r => r.it.lastBuy.date).sort().pop()} — 남은 재고 · 발주 잔량 소진 후 전환 시점 결정`]);
@@ -1540,8 +1540,8 @@ function subExec(s, R) {
   if (R.parts.some(r => isFinite(r.save1) && r.save1 <= 0)) risks.push(['단가 상승 품목', '신규 단가가 더 비싼 품목 포함 — 품목별 재검토']);
   risks.push(...exLines(E.risk));
   return {
-    conclusion: ok ? `${s.title}: 투자 ${krw(R.invest)} → 연 ${krw(R.annual)} 절감, ${isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월에 회수' : '회수 기간 계산 불가'}` : `${s.title}: 절감 효과 없음 — 진행 보류 권고`,
-    ask: E.ask || (ok ? '신규 업체 전환 및 금형 투자 승인' : '진행 보류 또는 견적 재협상'),
+    conclusion: ok ? `${s.title}: 투자 ${krw(R.invest)} → 연 ${krw(R.annual)} 절감, ${isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월에 회수' : '회수 기간 계산 불가'}` : `${s.title}: 절감 효과 없음 — 진행 여부 재검토 필요`,
+    ask: E.ask || (ok ? '신규 업체 전환 및 금형 투자 검토 요청' : '견적 재협상 또는 진행 여부 검토 요청'),
     kpis: [['총 투자', krw(R.invest), `금형 ${krw(R.invest - R.other)} · 공통 ${krw(R.other)}`], ['연간 절감액', krw(R.annual), `매입비 ${pct(R.saveRate)} 절감 · 3년 순이익 ${krw(R.net3)}`], ['회수 기간', isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월' : '회수 불가', `이익률 ${pct(R.mBefore)} → ${pct(R.mAfter)}`]],
     risks: risks.slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['신규 업체 샘플 입수 · 테스트', '금형 발주', '양산 전환 · 기존 재고 소진']
   };
@@ -1564,8 +1564,8 @@ function propExec(p) {
   risks.push(...exLines(E.risk));
   return {
     conclusion: `${p.title}: 입고가 ${won(F.c0)}원 → 대리점가 ${won(F.dealer)}원 · 소비자가 ${won(F.consumer)}원 (영업이익 ${ST().op}%)`,
-    ask: E.ask || '라인업 확정 및 초도 발주 승인',
-    kpis: [['초도 발주금액', isFinite(init) ? krw(init) : 'MOQ 입력 필요', isFinite(moq) ? `MOQ ${moq.toLocaleString()}개 × ${k}개 모델` : '결론 · 판단 요청 칸에서 MOQ 입력'],
+    ask: E.ask || '라인업 및 초도 발주 검토 요청',
+    kpis: [['초도 발주금액', isFinite(init) ? krw(init) : 'MOQ 입력 필요', isFinite(moq) ? `MOQ ${moq.toLocaleString()}개 × ${k}개 모델` : '결론 · 검토 요청 칸에서 MOQ 입력'],
       ['연간 예상 매출', isFinite(sales) ? krw(sales) : '수량 입력 필요', isFinite(qty) ? `${qty.toLocaleString()}개 × 대리점가` : '연간 예상 수량 입력'],
       ['연간 예상 영업이익', isFinite(op) ? krw(op) : '–', `개당 ${won(unitOp)}원 · ${pct(unitOp / F.dealer)}`]],
     risks: risks.slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['샘플 입수 · 품질 테스트', '판매가 · 채널 확정', '초도 발주']
@@ -1573,11 +1573,11 @@ function propExec(p) {
 }
 
 function execSlide(pres, pg, foot, X) {
-  const s = base(pres, 'DECISION', '결론 · 판단 요청', pg, foot);
+  const s = base(pres, 'REVIEW', '결론 · 검토 요청', pg, foot);
   box(s, 0.5, 1.12, 9, 0.56, C.ink, null, 0.04);
   T(s, X.conclusion, 0.7, 1.12, 8.6, 0.56, { fontSize: 13, bold: true, color: 'FFFFFF', valign: 'middle', fit: 'shrink' });
   box(s, 0.5, 1.78, 9, 0.42, C.tealSoft, 'B7E3E7', 0.04);
-  T(s, '판단 요청', 0.7, 1.78, 1.1, 0.42, { fontSize: 9, bold: true, color: C.teal, valign: 'middle' });
+  T(s, '검토 요청', 0.7, 1.78, 1.1, 0.42, { fontSize: 9, bold: true, color: C.teal, valign: 'middle' });
   T(s, X.ask, 1.8, 1.78, 7.5, 0.42, { fontSize: 11, bold: true, valign: 'middle' });
   X.kpis.forEach((k, i) => { const x = 0.5 + i * 3.05; box(s, x, 2.32, 2.9, 0.78, C.bg, null); T(s, k[0], x + 0.15, 2.38, 2.6, 0.2, { fontSize: 8, color: C.soft }); T(s, k[1], x + 0.15, 2.58, 2.6, 0.32, { fontSize: 17, bold: true, color: i === 2 ? C.teal : C.ink }); T(s, k[2], x + 0.15, 2.9, 2.6, 0.17, { fontSize: 6.5, color: C.mut }); });
   T(s, '리스크 · 대응', 0.5, 3.22, 5.6, 0.22, { fontSize: 10, bold: true });
@@ -1588,19 +1588,19 @@ function execSlide(pres, pg, foot, X) {
   return s;
 }
 
-/* 화면: 결론 · 판단 요청 상자 (입력 + PPT 미리보기) */
+/* 화면: 결론 · 검토 요청 상자 (입력 + PPT 미리보기) */
 function execBoxHtml(E, X, extra) {
   return `<div class="grid2" style="grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)">
     <div class="list" style="gap:8px">
       ${extra || ''}
-      <div class="fld"><label>판단 요청 (비우면 기본 문장)</label><input data-ex="ask" value="${esc(E.ask)}" placeholder="${esc(X.ask)}"></div>
+      <div class="fld"><label>검토 요청 (비우면 기본 문장)</label><input data-ex="ask" value="${esc(E.ask)}" placeholder="${esc(X.ask)}"></div>
       <div class="fld"><label>다음 단계 · 일정 (한 줄에 하나)</label><textarea data-ex="next" style="min-height:62px" placeholder="${esc(X.next.join('\n'))}">${esc(E.next)}</textarea></div>
       <div class="fld"><label>리스크 더하기 (한 줄에 하나, '리스크 — 대응')</label><textarea data-ex="risk" style="min-height:52px" placeholder="예) 납기 — 춘절 전 발주 필요">${esc(E.risk)}</textarea></div>
     </div>
     <div class="exprev" data-exprev>${execPreview(X)}</div></div>`;
 }
 function execPreview(X) {
-  return `<div class="exc">${esc(X.conclusion)}</div><div class="exask"><b>판단 요청</b> ${esc(X.ask)}</div>
+  return `<div class="exc">${esc(X.conclusion)}</div><div class="exask"><b>검토 요청</b> ${esc(X.ask)}</div>
     <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">${X.kpis.map((k, i) => `<div class="kpi ${i === 2 ? 'hl' : ''}"><div class="l">${esc(k[0])}</div><div class="v" style="font-size:18px">${esc(k[1])}</div><div class="s">${esc(k[2])}</div></div>`).join('')}</div>
     <div class="grid2" style="margin-top:8px;gap:10px"><div><b style="font-size:13px">리스크 · 대응</b>${X.risks.map(r => `<div class="exr"><b>${esc(r[0])}</b> ${esc(r[1])}</div>`).join('') || '<p class="hint">없음</p>'}</div>
     <div><b style="font-size:13px">다음 단계 · 일정</b><ol class="steps">${X.next.map(t => `<li>${esc(t)}</li>`).join('')}</ol></div></div>`;
@@ -1648,7 +1648,7 @@ function cover(pres, o) {
 
 /* ---------- 신규 제안서 PPT ---------- */
 function proposalSlides(p) {
-  const out = ['표지', '결론 · 판단 요청', '한 장 요약'];
+  const out = ['표지', '결론 · 검토 요청', '한 장 요약'];
   if (p.bg.on && (p.bg.curCode || lines(p.bg.rows).length)) out.push('추진 배경');
   if (p.market.on && pairs(p.market.items).filter(r => isFinite(num(r[1]))).length) out.push('경쟁사 판매가');
   if (p.comps.on && p.comps.items.some(c => c.img)) out.push('경쟁사 사진');
