@@ -1438,14 +1438,43 @@ function renderProp() {
      ${cm.fins.map(f => `<div class="fld"><label>${esc(f)} 현행 · 목표 온라인가 (VAT 포함)</label><input type="number" data-compare="${esc(f)}" value="${esc(p.pricing.compare[f] ?? '')}" style="width:150px"></div>`).join('')}</div>
      <p class="hint" style="margin-top:6px">대리점가 = 입고가에 판관비 ${ST().sga}% · 영업이익 ${ST().op}%를 얹은 최저 제안가, 소비자가 = 대리점가 × ${ST().consumerMult}. 온라인가를 넣으면 그 가격으로 팔 때 마진(1 − 입고가 ÷ (판매가 ÷ 1.1))도 함께 보여 줍니다.</p>
      ${pricingTbl}${ta('pricing.points', '검토 포인트 (한 줄에 하나)', '', 80)}`, 'pricing.on')}
-  ${sec('points', '10. 영업 포인트', `${inp('points.title', '장 제목')}<div class="grid3" style="margin-top:8px">${[0, 1, 2, 3, 4, 5].map(i => `<div class="slot">${inp(`points.items.${i}.t`, `포인트 ${i + 1}`)}${ta(`points.items.${i}.d`, '설명', '', 48)}</div>`).join('')}</div>`, 'points.on')}
-  ${sec('review', '11. 추가 검토 사항', `<div class="grid2"><div>${inp('review.leftTitle', '왼쪽 제목')}${ta('review.left', '항목 (한 줄에 하나)', '', 90)}</div><div>${inp('review.rightTitle', '오른쪽 제목')}${ta('review.right', '항목 (한 줄에 하나)', '', 90)}</div></div>`, 'review.on')}
+  ${sec('plan', '10. 판매 계획 (자사몰 · 대리점)', planHtml(p), 'plan.on')}
+  ${sec('points', '11. 영업 포인트', `${inp('points.title', '장 제목')}<div class="grid3" style="margin-top:8px">${[0, 1, 2, 3, 4, 5].map(i => `<div class="slot">${inp(`points.items.${i}.t`, `포인트 ${i + 1}`)}${ta(`points.items.${i}.d`, '설명', '', 48)}</div>`).join('')}</div>`, 'points.on')}
+  ${sec('review', '12. 추가 검토 사항', `<div class="grid2"><div>${inp('review.leftTitle', '왼쪽 제목')}${ta('review.left', '항목 (한 줄에 하나)', '', 90)}</div><div>${inp('review.rightTitle', '오른쪽 제목')}${ta('review.right', '항목 (한 줄에 하나)', '', 90)}</div></div>`, 'review.on')}
   <input type="file" id="imgIn" accept="image/*" hidden>`;
   renderOutline(); renderPropExec();
 }
+function planHtml(p) {
+  p.plan = p.plan || newPlan(); if (p.plan.on === undefined) p.plan.on = true; p.exec = p.exec || newExec();
+  const PL = planCalc(p);
+  const row = (key, r) => `<tr><td class="strong">${r.name}</td><td class="mut">${r.basis === '직접 입력' ? '직접 입력' : r.basis + ' (자동)'}</td>
+    <td><input type="number" data-p="plan.${key}.price" value="${esc(p.plan[key].price)}" placeholder="${isFinite(r.price) ? Math.round(r.price) : ''}" style="width:110px"></td>
+    <td><input type="number" data-p="plan.${key}.qty" value="${esc(p.plan[key].qty)}" placeholder="0" style="width:100px"></td>
+    <td class="n" data-pl="${key}-sales">${r.qty ? won(r.sales) : '–'}</td><td class="n strong" data-pl="${key}-op">${r.qty ? won(r.op) : '–'}</td><td class="n" data-pl="${key}-rate">${pct(r.rate)}</td></tr>`;
+  return `<p class="hint">판매가는 판매가 검토의 기준 모델(${esc(PL.F.bm || '–')} ${esc(PL.F.f0 || '')} ${esc(PL.F.set0 || '')}) 값이 자동으로 들어갑니다. 다르게 팔 거면 직접 넣으세요. 금액은 부가세 별도.</p>
+    <div class="tbl-wrap"><table><thead><tr><th>채널</th><th>가격 기준</th><th>판매가</th><th>연간 예상 수량</th><th>매출</th><th>영업이익</th><th>이익률</th></tr></thead>
+    <tbody>${row('mall', PL.rows[0])}${row('agent', PL.rows[1])}</tbody>
+    <tfoot><tr><td class="strong" style="padding:8px">합계</td><td></td><td></td><td class="n strong" data-pl="qty">${PL.qty.toLocaleString()}</td><td class="n strong" data-pl="sales">${PL.qty ? won(PL.sales) : '–'}</td><td class="n strong" data-pl="op">${PL.qty ? won(PL.op) : '–'}</td><td class="n strong" data-pl="rate">${PL.qty ? pct(PL.rate) : '–'}</td></tr></tfoot></table></div>
+    <div class="row" style="margin-top:10px">
+      <div class="fld"><label>자사몰 수수료 · 배송비 (%)</label><input type="number" step="any" data-p="plan.mallFee" value="${esc(p.plan.mallFee)}" placeholder="0" style="width:150px"></div>
+      <div class="fld"><label>모델당 MOQ (개)</label><input type="number" data-p="exec.moq" value="${esc(p.exec.moq)}" style="width:120px"></div>
+      <div class="fld"><label>리드타임</label><input data-p="plan.lead" value="${esc(p.plan.lead)}" placeholder="예: 발주 후 45일" style="width:150px"></div>
+      <div class="fld"><label>인증</label><input data-p="plan.cert" value="${esc(p.plan.cert)}" placeholder="예: KC 필요 · 진행 중" style="width:170px"></div>
+      <div class="fld"><label>보증 · AS</label><input data-p="plan.warranty" value="${esc(p.plan.warranty)}" placeholder="예: 1년 무상, 카트리지 교체" style="width:200px"></div>
+    </div>
+    <p class="status" style="margin-top:6px" data-pl="init">초도 발주금액 ${isFinite(PL.init) ? `<b>${krw(PL.init)}</b> (MOQ ${PL.moq.toLocaleString()}개 × ${PL.k}개 모델 × 평균 입고가)` : '— MOQ를 넣으면 계산됩니다'}</p>`;
+}
+function updatePlan() { // 입력 중에는 계산 칸만 바꿈
+  const p = P(); if (!p || !$('[data-pl="qty"]')) return; const PL = planCalc(p);
+  const set = (k, v) => { const el = $(`[data-pl="${k}"]`); if (el) el.innerHTML = v; };
+  [['mall', 0], ['agent', 1]].forEach(([k, i]) => { const r = PL.rows[i]; set(k + '-sales', r.qty ? won(r.sales) : '–'); set(k + '-op', r.qty ? won(r.op) : '–'); set(k + '-rate', pct(r.rate)); });
+  set('qty', PL.qty.toLocaleString()); set('sales', PL.qty ? won(PL.sales) : '–'); set('op', PL.qty ? won(PL.op) : '–'); set('rate', PL.qty ? pct(PL.rate) : '–');
+  set('init', `초도 발주금액 ${isFinite(PL.init) ? `<b>${krw(PL.init)}</b> (MOQ ${PL.moq.toLocaleString()}개 × ${PL.k}개 모델 × 평균 입고가)` : '— MOQ를 넣으면 계산됩니다'}`);
+  renderPropExec();
+}
 function renderPropExec() { const p = P(); const el = $('#propExec'); if (!p || !el) return; p.exec = p.exec || newExec();
   if (el.contains(document.activeElement)) { $('[data-exprev]', el).innerHTML = execPreview(propExec(p)); return; }
-  el.innerHTML = execBoxHtml(p.exec, propExec(p), `<div class="row"><div class="fld"><label>연간 예상 수량 (개)</label><input type="number" data-ex="qty" value="${esc(p.exec.qty)}" style="width:150px"></div><div class="fld"><label>모델당 MOQ (개)</label><input type="number" data-ex="moq" value="${esc(p.exec.moq)}" style="width:130px"></div></div>`); }
+  el.innerHTML = execBoxHtml(p.exec, propExec(p), `<p class="hint" style="margin:0">연간 수량 · MOQ는 아래 <b>판매 계획</b> 칸에 넣으면 여기 숫자가 바뀝니다.</p>`); }
 $('#propEdit').addEventListener('input', e => { const k = e.target.dataset.ex; if (!k) return; const p = P(); p.exec = p.exec || newExec(); p.exec[k] = e.target.value; save(); renderPropExec(); });
 function renderOutline() {
   const p = P(); if (!p) return;
@@ -1458,7 +1487,7 @@ $('#propEdit').addEventListener('input', e => {
   if (t.dataset.p) {
     setPath(p, t.dataset.p, t.type === 'checkbox' ? t.checked : t.value); save();
     if (t.dataset.p === 'title') renderPropList();
-    if (t.type === 'checkbox' || t.tagName === 'SELECT') renderPropKeep(); else renderOutline();
+    if (t.type === 'checkbox' || t.tagName === 'SELECT') renderPropKeep(); else { renderOutline(); if (/^(plan\.|exec\.moq)/.test(t.dataset.p)) updatePlan(); }
     return;
   }
   if (t.dataset.cost) { p.cost.m[t.dataset.cost] = t.value; save(); return; }
@@ -1557,6 +1586,21 @@ function subExec(s, R) {
   };
 }
 
+/* 판매 계획: 자사몰(소비자가) · 대리점(대리점가) 채널별 연간 예상 매출 · 영업이익 */
+function newPlan() { return { mall: { price: '', qty: '' }, agent: { price: '', qty: '' }, mallFee: '', lead: '', cert: '', warranty: '' }; }
+function planCalc(p) {
+  p.plan = p.plan || newPlan(); const P = p.plan; const F = propFacts(p); const sg = num(ST().sga) / 100;
+  const fee = (num(P.mallFee) || 0) / 100;
+  const rows = [['자사몰', '소비자가', P.mall, F.consumer, fee], ['대리점', '대리점가', P.agent, F.dealer, 0]].map(([name, basis, o, auto, f]) => {
+    const price = isFinite(num(o.price)) ? num(o.price) : auto; const qty = num(o.qty) || 0;
+    const unit = isFinite(price) && isFinite(F.c0) ? resultOf(F.c0, price, sg).opAmt - price * f : NaN;
+    return { name, basis: isFinite(num(o.price)) ? '직접 입력' : basis, price, qty, sales: price * qty, op: unit * qty, rate: unit / price, fee: f };
+  });
+  const qty = rows.reduce((a, r) => a + r.qty, 0), sales = rows.reduce((a, r) => a + (r.qty ? r.sales : 0), 0), op = rows.reduce((a, r) => a + (r.qty ? r.op : 0), 0);
+  const moq = num((p.exec || {}).moq); const k = F.cm.models.length || 1;
+  const avgCost = (() => { const xs = F.cm.models.map(m => F.cm.v(m, F.f0, F.set0)).filter(isFinite); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : F.c0; })();
+  return { F, rows, qty, sales, op, rate: op / sales, moq, k, init: isFinite(moq) ? moq * k * avgCost : NaN };
+}
 /* 신규 제안서: 입고가 → 대리점가, 초도 발주금액(MOQ), 연간 예상 매출 · 영업이익, 가격 위치 · 환율 · MOQ 부담 */
 function propExec(p) {
   const E = p.exec || newExec(); const F = propFacts(p);
@@ -1564,20 +1608,21 @@ function propExec(p) {
   const qty = num(E.qty), moq = num(E.moq); const k = F.cm.models.length || 1;
   const avgCost = (() => { const xs = F.cm.models.map(m => F.cm.v(m, F.f0, F.set0)).filter(isFinite); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : F.c0; })();
   const init = isFinite(moq) ? moq * k * avgCost : NaN;
-  const sales = qty * F.dealer, op = qty * unitOp;
+  const PL = planCalc(p); const usePlan = PL.qty > 0;
+  const sales = usePlan ? PL.sales : qty * F.dealer, op = usePlan ? PL.op : qty * unitOp; const qtyAll = usePlan ? PL.qty : qty;
   const risks = [];
   if (isFinite(F.med) && isFinite(F.consumer)) { const d = F.consumer / F.med - 1; risks.push(['가격 위치', d > 0.15 ? `제안 소비자가가 경쟁 중간값보다 ${(d * 100).toFixed(0)}% 높음 — 품질 · 디자인 차별화 근거 필요` : d < -0.15 ? `경쟁 중간값보다 ${(-d * 100).toFixed(0)}% 낮음 — 가격 경쟁력 있음, 이익 여지 검토` : '경쟁 중간값과 비슷 — 차별 포인트로 승부']); }
   if (p.cost.mode !== 'KRW' && isFinite(F.dealer)) { const op5 = resultOf(F.c0 * 1.05, F.dealer, sg).opAmt; risks.push(['환율', `5% 오르면 영업이익률 ${pct(unitOp / F.dealer)} → ${pct(op5 / F.dealer)}`]); }
-  if (isFinite(qty) && isFinite(moq) && qty < moq * k) risks.push(['재고 부담', `연간 예상 ${qty.toLocaleString()}개 < 초도 MOQ 합계 ${(moq * k).toLocaleString()}개 — 주력 모델 · 마감 축소 검토`]);
+  if (isFinite(qtyAll) && qtyAll > 0 && isFinite(moq) && qtyAll < moq * k) risks.push(['재고 부담', `연간 예상 ${qtyAll.toLocaleString()}개 < 초도 MOQ 합계 ${(moq * k).toLocaleString()}개 — 주력 모델 · 마감 축소 검토`]);
   const thinSet = F.cm.sets.find(st => { const c = F.cm.v(F.bm, F.f0, st); const pr = priceOf(c); return isFinite(pr.base) && resultOf(c, pr.base, sg).opAmt / pr.base < 0.1; });
   if (thinSet) risks.push(['낮은 마진 세트', `${thinSet} — 별도 가격대 검토`]);
   risks.push(...exLines(E.risk));
   return {
     conclusion: [p.title, `입고가 ${won(F.c0)}원  →  대리점가 ${won(F.dealer)}원  ·  소비자가 ${won(F.consumer)}원 (영업이익 ${ST().op}%)`],
     ask: (E.ask || '').trim(),
-    kpis: [['초도 발주금액', isFinite(init) ? krw(init) : 'MOQ 입력 필요', isFinite(moq) ? `MOQ ${moq.toLocaleString()}개 × ${k}개 모델` : '제안 요약 칸에서 MOQ 입력'],
-      ['연간 예상 매출', isFinite(sales) ? krw(sales) : '수량 입력 필요', isFinite(qty) ? `${qty.toLocaleString()}개 × 대리점가` : '연간 예상 수량 입력'],
-      ['연간 예상 영업이익', isFinite(op) ? krw(op) : '–', `개당 ${won(unitOp)}원 · ${pct(unitOp / F.dealer)}`]],
+    kpis: [['초도 발주금액', isFinite(init) ? krw(init) : 'MOQ 입력 필요', isFinite(moq) ? `MOQ ${moq.toLocaleString()}개 × ${k}개 모델` : '판매 계획 칸에서 MOQ 입력'],
+      ['연간 예상 매출', isFinite(sales) && qtyAll > 0 ? krw(sales) : '수량 입력 필요', usePlan ? `자사몰 ${PL.rows[0].qty.toLocaleString()} + 대리점 ${PL.rows[1].qty.toLocaleString()}개` : isFinite(qty) ? `${qty.toLocaleString()}개 × 대리점가` : '판매 계획 칸에서 채널별 수량 입력'],
+      ['연간 예상 영업이익', isFinite(op) && qtyAll > 0 ? krw(op) : '–', usePlan ? `영업이익률 ${pct(PL.rate)}` : `개당 ${won(unitOp)}원 · ${pct(unitOp / F.dealer)}`]],
     risks: risks.slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['샘플 입수 · 품질 테스트', '판매가 · 채널 확정', '초도 발주']
   };
 }
@@ -1675,6 +1720,7 @@ function proposalSlides(p) {
   const cm = costModel(p); const hasCost = cm.models.some(m => cm.fins.some(f => cm.sets.some(s => isFinite(cm.v(m, f, s)))));
   if (p.cost.on && hasCost) out.push('세트별 입고가');
   if (p.pricing.on && hasCost) out.push('판매가 검토', '영업이익률별 대리점가');
+  if (hasCost && p.plan && p.plan.on !== false && (num(p.plan.mall.qty) > 0 || num(p.plan.agent.qty) > 0)) out.push('판매 계획');
   if (p.points.on && p.points.items.some(x => x.t)) out.push('영업 포인트');
   if (p.review.on && (lines(p.review.left).length || lines(p.review.right).length)) out.push('추가 검토 사항');
   return out;
@@ -1779,6 +1825,21 @@ async function buildPropPpt() {
     cm.models.forEach(m => cm.fins.forEach(f => { const c = cm.v(m, f, st0); if (!isFinite(c)) return; const lm = p.lineup.models.find(x => x.code === m);
       items.push({ label: `${m} ${f}${cm.sets.length > 1 || st0 !== '단품' ? ' · ' + st0 : ''}`, cost: c, img: lm && lm.img }); }));
     pg = ladderSlides(pres, pg, foot, items);
+  }
+  // 판매 계획 — 자사몰 · 대리점
+  if (has.has('판매 계획')) {
+    const PL = planCalc(p); const s = base(pres, 'PLAN', '판매 계획 : 자사몰 · 대리점', ++pg, foot);
+    const hd = ['채널', '판매가', '연간 예상 수량', '매출', '영업이익', '이익률'].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k ? 'right' : 'left' } }));
+    const body = PL.rows.map(r => [{ text: r.name, options: { bold: true } }, { text: `${won(r.price)}원`, options: { align: 'right' } }, { text: r.qty.toLocaleString() + '개', options: { align: 'right' } }, { text: r.qty ? won(r.sales) : '–', options: { align: 'right' } }, { text: r.qty ? won(r.op) : '–', options: { align: 'right', bold: true, color: C.teal } }, { text: pct(r.rate), options: { align: 'right' } }]);
+    const tot = [{ text: '합계', options: { bold: true } }, { text: '' }, { text: PL.qty.toLocaleString() + '개', options: { align: 'right', bold: true } }, { text: won(PL.sales), options: { align: 'right', bold: true } }, { text: won(PL.op), options: { align: 'right', bold: true, color: C.teal } }, { text: pct(PL.rate), options: { align: 'right', bold: true } }];
+    s.addTable([hd, ...body, tot.map(c => Object.assign({}, c, { options: Object.assign({ fill: { color: C.bg } }, c.options || {}) }))], { x: 0.5, y: 1.2, w: 9, colW: [1.8, 1.4, 1.5, 1.5, 1.5, 1.3], rowH: 0.42, fontFace: FONT, fontSize: 10.5, color: C.ink, border: { type: 'solid', color: C.line, pt: 0.5 }, valign: 'middle', margin: TM });
+    T(s, `판매가 · 원가 기준: ${PL.F.bm} ${PL.F.f0} ${PL.F.set0} (입고가 ${won(PL.F.c0)}원)  ·  자사몰 = 소비자가${PL.rows[0].fee ? `, 수수료 · 배송비 ${(PL.rows[0].fee * 100).toFixed(1)}% 차감` : ''}  ·  대리점 = 대리점가  ·  부가세 별도`, 0.5, 2.98, 9, 0.2, { fontSize: 7.5, color: C.soft });
+    const cond = [['모델당 MOQ', isFinite(PL.moq) ? PL.moq.toLocaleString() + '개' : ''], ['초도 발주금액', isFinite(PL.init) ? krw(PL.init) : ''], ['리드타임', p.plan.lead], ['인증', p.plan.cert], ['보증 · AS', p.plan.warranty]].filter(c => String(c[1] || '').trim());
+    if (cond.length) {
+      T(s, '조건', 0.5, 3.35, 3, 0.25, { fontSize: 10.5, bold: true });
+      const w = (9 - (cond.length - 1) * 0.12) / cond.length;
+      cond.forEach((c, i) => { const x = 0.5 + i * (w + 0.12); box(s, x, 3.65, w, 0.85, C.bg, null); T(s, c[0], x + 0.12, 3.72, w - 0.24, 0.2, { fontSize: 8, color: C.soft }); T(s, String(c[1]), x + 0.12, 3.95, w - 0.24, 0.45, { fontSize: 12, bold: true, valign: 'top', fit: 'shrink' }); });
+    }
   }
   // 영업 포인트
   if (has.has('영업 포인트')) { const s = base(pres, 'SELLING POINT', p.points.title || '영업 포인트', ++pg, foot);
