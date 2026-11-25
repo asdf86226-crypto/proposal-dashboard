@@ -207,7 +207,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
   </div>
   <div class="card" id="psExecCard">
     <h2>결론 · 검토 요청 <span class="pill">PPT 2쪽</span></h2>
-    <p class="hint">임원이 먼저 보는 장입니다 — 숫자 · 리스크는 '보고'에 체크한 품목으로 자동 계산되고, 검토 요청 · 일정만 적으면 됩니다.</p>
+    <p class="hint">빠르게 결정이 필요한 부분을 한 장에 모았습니다 — 숫자 · 리스크는 '보고'에 체크한 품목으로 자동 계산되고, 검토 요청 · 일정만 적으면 됩니다.</p>
     <div id="psExec"></div>
   </div>
   <div class="card" id="descCard">
@@ -1056,7 +1056,7 @@ function renderSub() {
     <div class="fld" style="margin-top:12px"><label>메모 (PPT에 들어갑니다)</label><textarea data-k="note">${esc(s.note)}</textarea></div>
   </div>
   <div class="card"><h2>결론 · 검토 요청 <span class="pill">PPT 첫 장</span></h2>
-    <p class="hint">임원이 먼저 보는 장입니다 — 투자 · 절감 · 회수, 다른 제품 영향(BOM) · 품질 · 기존 재고 리스크는 자동으로 채워집니다.</p>
+    <p class="hint">빠르게 결정이 필요한 부분을 한 장에 모았습니다 — 투자 · 절감 · 회수, 다른 제품 영향(BOM) · 품질 · 기존 재고 리스크는 자동으로 채워집니다.</p>
     <div id="subExec"></div>
   </div>
   <div class="card"><h2>분석 결과 ${s.items.length > 1 ? `<span class="pill">${s.items.length}개 품목 합계</span>` : ''}</h2><div id="subRes"></div></div>
@@ -1404,7 +1404,7 @@ function renderProp() {
   <div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(p.title || '제목 없음')}</h2>
     <div class="row"><button class="b p" id="propAuto" title="비어 있는 칸만, 입고가 · 판매가 · 경쟁사 가격 · MMS 실적으로 채웁니다">⚡ 자동 채우기</button><button class="b d" id="propAi" title="Claude에게 문구 초안을 받아 채웁니다">✦ AI 초안 (Claude)</button></div></div>
     <p class="hint" style="margin:6px 0 0">⚡ 자동 채우기는 <b>비어 있는 칸만</b> 숫자로 쓸 수 있는 문장으로 채웁니다. 영업 포인트 · 배경 같은 설명 문구는 ✦ AI 초안을 쓰세요. 칸을 비워 두면 그 장은 PPT에서 빠집니다.</p></div>
-  ${sec('exec', '0. 결론 · 검토 요청 (PPT 2쪽)', `<p class="hint">임원이 먼저 보는 장입니다 — 입고가 · 판매가 · 초도 발주금액 · 연간 예상 이익과 가격 위치 · 환율 · 재고 리스크는 자동으로 채워집니다.</p><div id="propExec"></div>`)}
+  ${sec('exec', '0. 결론 · 검토 요청 (PPT 2쪽)', `<p class="hint">빠르게 결정이 필요한 부분을 한 장에 모았습니다 — 입고가 · 판매가 · 초도 발주금액 · 연간 예상 이익과 가격 위치 · 환율 · 재고 리스크는 자동으로 채워집니다.</p><div id="propExec"></div>`)}
   ${sec('cover', '1. 표지', `<div class="row">${inp('title', '제안서 이름 (파일 이름 · 바닥글)', '', 'flex:1;min-width:260px')}${inp('kicker', '상단 작은 글씨', '', 'width:160px')}</div>
      <div class="grid2" style="margin-top:8px">${ta('coverTitle', '표지 제목 (줄바꿈 가능)', '', 56)}${ta('subtitle', '부제 (줄바꿈 가능)', '', 56)}</div>
      <div class="row" style="margin-top:8px">${inp('from', '보내는 곳 → 받는 곳', '', 'width:200px')}${inp('date', '작성 연월', '', 'width:110px')}${inp('baseDate', '자료 기준일', '', 'width:120px')}</div>
@@ -1491,8 +1491,8 @@ function shrinkImage(file, max) {
 $('#propPpt').onclick = async () => { const f = await buildPropPpt(); if (f) downloadBlob(f.blob, f.name); };
 $('#propTeams').onclick = async () => { const f = await buildPropPpt(); if (f) openTeams(f, `[신규 제품 제안] ${f.title}\n라인업 · 입고가 · 판매가 검토 자료입니다. 검토 후 의견 부탁드립니다.`); };
 
-/* =================== 결론 · 검토 요청 (임원 보고용 첫 장) ===================
- * 임원은 과정보다 영향(비용 · 효과 · 기간) · 리스크 · 검토할 것을 먼저 본다.
+/* =================== 결론 · 검토 요청 (빠른 결정용 첫 장) ===================
+ * 빠른 결정에는 과정보다 영향(비용 · 효과 · 기간) · 리스크 · 검토할 것이 먼저 필요하다.
  * 세 PPT 모두 표지 다음에 이 장을 넣는다. 숫자 · 리스크는 자동, 검토 요청 · 다음 단계는 입력(비우면 기본 문장). */
 const krw = v => !isFinite(v) ? '–' : Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(1).replace(/\.0$/, '') + '억 원' : Math.abs(v) >= 1e4 ? Math.round(v / 1e4).toLocaleString() + '만 원' : won(v) + '원';
 const exLines = t => lines(t).map(l => { const m = l.split(/\s+[—\-→]\s+|\s*\|\s*/); return m.length > 1 ? [m[0], m.slice(1).join(' — ')] : [l, '']; });
