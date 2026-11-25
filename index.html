@@ -1498,6 +1498,16 @@ const krw = v => !isFinite(v) ? '–' : Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(1
 const exLines = t => lines(t).map(l => { const m = l.split(/\s+[—\-→]\s+|\s*\|\s*/); return m.length > 1 ? [m[0], m.slice(1).join(' — ')] : [l, '']; });
 function newExec() { return { ask: '', next: '', risk: '', qty: '', moq: '' }; }
 
+/* 제품 종류(품목 이름)마다 대리점가 · 소비자가 · 영업이익률 — 종류마다 가격 기준이 달라 합쳐서 평균 내지 않음 */
+function priceTypeKpis(rows) {
+  const g = new Map();
+  rows.forEach(r => { const k = (r.name || r.code || '품목').trim(); const c = priceRowCalc(r); const q = num(r.qty) || 0;
+    const x = g.get(k) || { d: [], c: [], s: 0, o: 0, n: 0 }; x.d.push(c.final); x.c.push(c.consumer); x.s += c.final * (q || 1); x.o += c.opAmt * (q || 1); x.n++; g.set(k, x); });
+  const rng = (a, u = '원') => { const lo = Math.min(...a), hi = Math.max(...a); return lo === hi ? won(lo) + u : `${won(lo)}~${won(hi)}${u}`; };
+  const all = [...g.entries()].map(([k, x]) => [`${cut(k, 22)}${x.n > 1 ? ` (${x.n}개 품목)` : ''} 대리점가`, rng(x.d), `소비자가 ${rng(x.c)} · 영업이익률 ${pct(x.o / x.s)}`]);
+  if (all.length <= 4) return all;
+  return [...all.slice(0, 3), [`외 ${all.length - 3}종`, `${all.length - 3}종`, '품목별 금액은 다음 장 표 참고']];
+}
 /* 유통가 제안: 체크한 품목의 예상 매출 · 영업이익(수량 기준), 환율 +5% 민감도 */
 function priceExec(ps) {
   const E = ps.exec || newExec(); const rows = ps.rows.filter(r => r.pick && isFinite(priceRowCalc(r).final));
@@ -1518,8 +1528,7 @@ function priceExec(ps) {
   return {
     conclusion: `${ps.title}: ${rows.length}개 품목 대리점가 제안 — 예상 매출 ${krw(sales)} · 영업이익 ${krw(op)} (${pct(rate)})`,
     ask: E.ask || '대리점가(제안 최저가) 기준 영업 단가 검토 요청',
-    kpis: [['예상 매출', krw(sales), `수량 ${qty.toLocaleString()}개 × 대리점가`], ['예상 영업이익', krw(op), `영업이익률 ${pct(rate)}`],
-      fx ? ['환율 +5% 시 영업이익률', pct(rate5), `현재 ${pct(rate)} · ${ST().fxMonth} 환율 기준`] : ['평균 대리점가', won(sales / qty) + '원', `${rows.length}개 품목`]],
+    kpis: priceTypeKpis(rows), plain: true,
     risks: risks.slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['영업팀 단가 검토 · 확정', '거래처 견적 제출 · 단가 등록']
   };
 }
@@ -1579,8 +1588,13 @@ function execSlide(pres, pg, foot, X) {
   box(s, 0.5, 1.78, 9, 0.42, C.tealSoft, 'B7E3E7', 0.04);
   T(s, '검토 요청', 0.7, 1.78, 1.1, 0.42, { fontSize: 9, bold: true, color: C.teal, valign: 'middle' });
   T(s, X.ask, 1.8, 1.78, 7.5, 0.42, { fontSize: 11, bold: true, valign: 'middle' });
-  X.kpis.forEach((k, i) => { const x = 0.5 + i * 3.05; box(s, x, 2.32, 2.9, 0.78, C.bg, null); T(s, k[0], x + 0.15, 2.38, 2.6, 0.2, { fontSize: 8, color: C.soft }); T(s, k[1], x + 0.15, 2.58, 2.6, 0.32, { fontSize: 17, bold: true, color: i === 2 ? C.teal : C.ink }); T(s, k[2], x + 0.15, 2.9, 2.6, 0.17, { fontSize: 6.5, color: C.mut }); });
+  const kn = X.kpis.length, kw = (9 - (kn - 1) * 0.15) / kn;
+  X.kpis.forEach((k, i) => { const x = 0.5 + i * (kw + 0.15); const big = String(k[1]).length > (kn > 3 ? 11 : 14);
+    box(s, x, 2.32, kw, 0.78, C.bg, null); T(s, k[0], x + 0.12, 2.38, kw - 0.24, 0.2, { fontSize: 8, color: C.soft });
+    T(s, k[1], x + 0.12, 2.58, kw - 0.24, 0.32, { fontSize: big ? 13 : kn > 3 ? 15 : 17, bold: true, color: !X.plain && i === 2 ? C.teal : C.ink, valign: 'middle' });
+    T(s, k[2], x + 0.12, 2.9, kw - 0.24, 0.17, { fontSize: 6.5, color: C.mut }); });
   T(s, '리스크 · 대응', 0.5, 3.22, 5.6, 0.22, { fontSize: 10, bold: true });
+  if (!X.risks.length) T(s, '특이 리스크 없음', 0.5, 3.5, 5.6, 0.3, { fontSize: 9, color: C.soft });
   X.risks.forEach((r, i) => { const y = 3.5 + i * 0.4; s.addShape('rect', { x: 0.5, y: y + 0.03, w: 0.05, h: 0.3, fill: { color: C.red }, line: { type: 'none' } }); T(s, r[0], 0.65, y, 1.35, 0.36, { fontSize: 8.5, bold: true, valign: 'middle' }); T(s, r[1], 2.0, y, 4.1, 0.36, { fontSize: 8, color: C.ink, valign: 'middle', fit: 'shrink' }); });
   box(s, 6.4, 3.22, 3.1, 1.88, C.bg, null);
   T(s, '다음 단계 · 일정', 6.55, 3.3, 2.8, 0.22, { fontSize: 10, bold: true });
@@ -1601,7 +1615,7 @@ function execBoxHtml(E, X, extra) {
 }
 function execPreview(X) {
   return `<div class="exc">${esc(X.conclusion)}</div><div class="exask"><b>검토 요청</b> ${esc(X.ask)}</div>
-    <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">${X.kpis.map((k, i) => `<div class="kpi ${i === 2 ? 'hl' : ''}"><div class="l">${esc(k[0])}</div><div class="v" style="font-size:18px">${esc(k[1])}</div><div class="s">${esc(k[2])}</div></div>`).join('')}</div>
+    <div class="kpis" style="grid-template-columns:repeat(${X.kpis.length},minmax(0,1fr))">${X.kpis.map((k, i) => `<div class="kpi ${!X.plain && i === 2 ? 'hl' : ''}"><div class="l">${esc(k[0])}</div><div class="v" style="font-size:18px">${esc(k[1])}</div><div class="s">${esc(k[2])}</div></div>`).join('')}</div>
     <div class="grid2" style="margin-top:8px;gap:10px"><div><b style="font-size:13px">리스크 · 대응</b>${X.risks.map(r => `<div class="exr"><b>${esc(r[0])}</b> ${esc(r[1])}</div>`).join('') || '<p class="hint">없음</p>'}</div>
     <div><b style="font-size:13px">다음 단계 · 일정</b><ol class="steps">${X.next.map(t => `<li>${esc(t)}</li>`).join('')}</ol></div></div>`;
 }
