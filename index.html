@@ -140,6 +140,15 @@ dialog .ft{padding:12px 18px;display:flex;gap:8px;justify-content:flex-end;borde
 .exr b{margin-right:4px}
 .exin{width:100%;margin-top:6px;border:1px dashed var(--edge);background:var(--panel);color:var(--ink);font:13px/1.6 var(--sans);border-radius:6px;padding:6px 10px;min-height:0;resize:vertical}
 .exin:focus{border-style:solid}
+.eximgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.exim{position:relative;width:120px;height:90px;border:1px solid var(--line);border-radius:6px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.exim img{max-width:100%;max-height:100%;object-fit:contain}
+.exim .x{position:absolute;top:2px;right:2px;background:rgba(255,255,255,.85);border-radius:4px;display:none}
+.exim:hover .x{display:block}
+.exim.add{flex-direction:column;gap:2px;padding:6px;border:1px dashed var(--edge);background:var(--panel);color:var(--ink-soft);font-size:12.5px;text-align:center;line-height:1.3;cursor:pointer}
+.exim.add small{font-size:10.5px;color:var(--muted)}
+.exim.add:focus{outline:2px solid var(--teal);outline-offset:-2px}
+.exprev.over{outline:2px dashed var(--teal);outline-offset:2px}
 .ladder{display:flex;gap:6px;flex-wrap:wrap}
 .ladder div{border:1px solid var(--line);border-radius:6px;padding:6px 10px;text-align:center;min-width:92px;background:var(--panel)}
 .ladder div.on{border-color:var(--teal);background:var(--teal-soft)}
@@ -210,7 +219,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
   </div>
   <div class="card" id="psExecCard">
     <h2>제안 요약 <span class="pill">PPT 2쪽</span></h2>
-    <p class="hint">PPT 2쪽 모양 그대로입니다 — 숫자는 자동으로 계산되고, 확인할 점 · 진행 일정은 카드 안에 바로 쓰면 됩니다.</p>
+    <p class="hint">PPT 2쪽 모양 그대로입니다 — 숫자는 자동으로 계산되고, 제안 사항만 카드 안에 쓰면 됩니다.</p>
     <div id="psExec"></div>
   </div>
   <div class="card" id="ladderCard">
@@ -1051,7 +1060,7 @@ function renderSub() {
     <div class="fld" style="margin-top:12px"><label>메모 (PPT에 들어갑니다)</label><textarea data-k="note">${esc(s.note)}</textarea></div>
   </div>
   <div class="card"><h2>제안 요약 <span class="pill">PPT 첫 장</span></h2>
-    <p class="hint">PPT 2쪽 모양 그대로입니다 — 숫자는 자동으로 계산되고, 확인할 점 · 진행 일정은 카드 안에 바로 쓰면 됩니다.</p>
+    <p class="hint">PPT 2쪽 모양 그대로입니다 — 숫자는 자동으로 계산되고, 제안 사항만 카드 안에 쓰면 됩니다.</p>
     <div id="subExec"></div>
   </div>
   <div class="card"><h2>분석 결과 ${s.items.length > 1 ? `<span class="pill">${s.items.length}개 품목 합계</span>` : ''}</h2><div id="subRes"></div></div>
@@ -1399,7 +1408,7 @@ function renderProp() {
   <div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(p.title || '제목 없음')}</h2>
     <div class="row"><button class="b p" id="propAuto" title="비어 있는 칸만, 입고가 · 판매가 · 경쟁사 가격 · MMS 실적으로 채웁니다">⚡ 자동 채우기</button><button class="b d" id="propAi" title="Claude에게 문구 초안을 받아 채웁니다">✦ AI 초안 (Claude)</button></div></div>
     <p class="hint" style="margin:6px 0 0">⚡ 자동 채우기는 <b>비어 있는 칸만</b> 숫자로 쓸 수 있는 문장으로 채웁니다. 영업 포인트 · 배경 같은 설명 문구는 ✦ AI 초안을 쓰세요. 칸을 비워 두면 그 장은 PPT에서 빠집니다.</p></div>
-  ${sec('exec', '0. 제안 요약 (PPT 2쪽)', `<p class="hint">PPT 2쪽 모양 그대로입니다 — 숫자는 자동으로 계산되고, 확인할 점 · 진행 일정은 카드 안에 바로 쓰면 됩니다.</p><div id="propExec"></div>`)}
+  ${sec('exec', '0. 제안 요약 (PPT 2쪽)', `<p class="hint">PPT 2쪽 모양 그대로입니다 — 숫자는 자동으로 계산되고, 제안 사항만 카드 안에 쓰면 됩니다.</p><div id="propExec"></div>`)}
   ${sec('cover', '1. 표지', `<div class="row">${inp('title', '제안서 이름 (파일 이름 · 바닥글)', '', 'flex:1;min-width:260px')}${inp('kicker', '상단 작은 글씨', '', 'width:160px')}</div>
      <div class="grid2" style="margin-top:8px">${ta('coverTitle', '표지 제목 (줄바꿈 가능)', '', 56)}${ta('subtitle', '부제 (줄바꿈 가능)', '', 56)}</div>
      <div class="row" style="margin-top:8px">${inp('from', '보내는 곳 → 받는 곳', '', 'width:200px')}${inp('date', '작성 연월', '', 'width:110px')}${inp('baseDate', '자료 기준일', '', 'width:120px')}</div>
@@ -1520,6 +1529,10 @@ $('#propTeams').onclick = async () => { const f = await buildPropPpt(); if (f) o
  * 세 PPT 모두 표지 다음에 이 장을 넣는다. 숫자 · 확인할 점은 자동, 진행 일정 · 요청 사항은 입력(비우면 기본 문장). */
 const krw = v => !isFinite(v) ? '–' : Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(1).replace(/\.0$/, '') + '억 원' : Math.abs(v) >= 1e4 ? Math.round(v / 1e4).toLocaleString() + '만 원' : won(v) + '원';
 const exLines = t => lines(t).map(l => { const m = l.split(/\s+[—\-→]\s+|\s*\|\s*/); return m.length > 1 ? [m[0], m.slice(1).join(' — ')] : [l, '']; });
+function memoOf(E) {
+  if (E.memo === undefined) E.memo = [...lines(E.risk), ...lines(E.next)].join('\n');
+  return lines(E.memo);
+}
 function newExec() { return { ask: '', next: '', risk: '', qty: '', moq: '' }; }
 
 /* 제품 종류(품목 이름)마다 대리점가 · 소비자가 · 영업이익률 — 종류마다 가격 기준이 달라 합쳐서 평균 내지 않음 */
@@ -1553,7 +1566,7 @@ function priceExec(ps) {
     conclusion: [ps.title, `${rows.length}개 품목 대리점가 제안  ·  예상 매출 ${krw(sales)}  ·  영업이익 ${krw(op)} (${pct(rate)})`],
     ask: '',
     kpis: priceTypeKpis(rows), plain: true,
-    risks: risks.slice(0, 4), auto, next: lines(E.next).length ? lines(E.next) : ['영업팀 단가 검토 · 확정', '거래처 견적 제출 · 단가 등록']
+    risks: risks.slice(0, 4), auto, memo: memoOf(E), imgs: (E.imgs || []).slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['영업팀 단가 검토 · 확정', '거래처 견적 제출 · 단가 등록']
   };
 }
 
@@ -1576,7 +1589,7 @@ function subExec(s, R) {
     conclusion: [s.title, ok ? `투자 ${krw(R.invest)}  →  연 ${krw(R.annual)} 절감  ·  ${isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월에 회수' : '회수 기간 계산 불가'}` : '절감 효과 없음  ·  진행 여부 재검토 필요'],
     ask: '',
     kpis: [['총 투자', krw(R.invest), `금형 ${krw(R.invest - R.other)} · 공통 ${krw(R.other)}`], ['연간 절감액', krw(R.annual), `매입비 ${pct(R.saveRate)} 절감 · 3년 순이익 ${krw(R.net3)}`], ['회수 기간', isFinite(R.payMon) ? R.payMon.toFixed(1) + '개월' : '회수 불가', `이익률 ${pct(R.mBefore)} → ${pct(R.mAfter)}`]],
-    risks: risks.slice(0, 4), auto, next: lines(E.next).length ? lines(E.next) : ['신규 업체 샘플 입수 · 테스트', '금형 발주', '양산 전환 · 기존 재고 소진']
+    risks: risks.slice(0, 4), auto, memo: memoOf(E), imgs: (E.imgs || []).slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['신규 업체 샘플 입수 · 테스트', '금형 발주', '양산 전환 · 기존 재고 소진']
   };
 }
 
@@ -1617,7 +1630,7 @@ function propExec(p) {
     kpis: [['초도 발주금액', isFinite(init) ? krw(init) : 'MOQ 입력 필요', isFinite(moq) ? `MOQ ${moq.toLocaleString()}개 × ${k}개 모델` : '판매 계획 칸에서 MOQ 입력'],
       ['연간 예상 매출', isFinite(sales) && qtyAll > 0 ? krw(sales) : '수량 입력 필요', usePlan ? `자사몰 ${PL.rows[0].qty.toLocaleString()} + 대리점 ${PL.rows[1].qty.toLocaleString()}개` : isFinite(qty) ? `${qty.toLocaleString()}개 × 대리점가` : '판매 계획 칸에서 채널별 수량 입력'],
       ['연간 예상 영업이익', isFinite(op) && qtyAll > 0 ? krw(op) : '–', usePlan ? `영업이익률 ${pct(PL.rate)}` : `개당 ${won(unitOp)}원 · ${pct(unitOp / F.dealer)}`]],
-    risks: risks.slice(0, 4), auto, next: lines(E.next).length ? lines(E.next) : ['샘플 입수 · 품질 테스트', '판매가 · 채널 확정', '초도 발주']
+    risks: risks.slice(0, 4), auto, memo: memoOf(E), imgs: (E.imgs || []).slice(0, 4), next: lines(E.next).length ? lines(E.next) : ['샘플 입수 · 품질 테스트', '판매가 · 채널 확정', '초도 발주']
   };
 }
 
@@ -1634,14 +1647,23 @@ function execSlide(pres, pg, foot, X) {
     T(s, k[1], x + 0.12, y + 0.25 + (kh - 0.76) / 2, kw - 0.24, 0.32, { fontSize: big ? 13 : kn > 3 ? 15 : 17, bold: true, color: !X.plain && i === 2 ? C.teal : C.ink, valign: 'middle' });
     T(s, k[2], x + 0.12, y + kh - 0.21, kw - 0.24, 0.17, { fontSize: 6.5, color: C.mut }); });
   y += kh + 0.14;
-  const bh = 5.12 - y;
-  T(s, '확인할 점', 0.5, y, 5.6, 0.22, { fontSize: 10, bold: true });
-  if (!X.risks.length) T(s, '특별히 확인할 점 없음', 0.5, y + 0.28, 5.6, 0.3, { fontSize: 9, color: C.soft });
-  const rs = Math.min(0.42, (bh - 0.3) / Math.max(1, X.risks.length));
-  X.risks.forEach((r, i) => { const ry = y + 0.28 + i * rs; s.addShape('rect', { x: 0.5, y: ry + 0.03, w: 0.05, h: rs - 0.08, fill: { color: C.steel }, line: { type: 'none' } }); T(s, r[0], 0.65, ry, 1.35, rs - 0.02, { fontSize: 8.5, bold: true, valign: 'middle' }); T(s, r[1], 2.0, ry, 4.1, rs - 0.02, { fontSize: 8, color: C.ink, valign: 'middle', fit: 'shrink' }); });
-  box(s, 6.4, y, 3.1, bh, C.bg, null);
-  T(s, '진행 일정', 6.55, y + 0.08, 2.8, 0.22, { fontSize: 10, bold: true });
-  X.next.slice(0, 5).forEach((t, i) => { const ny = y + 0.38 + i * 0.29; circleNum(s, 6.58, ny + 0.02, 0.22, i + 1); T(s, t, 6.88, ny, 2.55, 0.27, { fontSize: 8.5, valign: 'middle', fit: 'shrink' }); });
+  const ms = X.memo || [], im = X.imgs || [];
+  if (ms.length || im.length) {
+    const bh = 5.12 - y; box(s, 0.5, y, 9, bh, C.bg, null);
+    T(s, '제안 사항', 0.7, y + 0.1, 8.6, 0.24, { fontSize: 10.5, bold: true });
+    const tw = im.length ? 5.2 : 8.6; // 사진이 있으면 글은 왼쪽
+    const rs = Math.min(0.4, (bh - 0.5) / Math.max(1, ms.length));
+    ms.forEach((l, i) => { const ry = y + 0.42 + i * rs; const m = l.split(/\s+[—\-]\s+|\s*\|\s*/);
+      s.addShape('rect', { x: 0.7, y: ry + 0.05, w: 0.05, h: rs - 0.12, fill: { color: C.teal }, line: { type: 'none' } });
+      if (m.length > 1) { T(s, m[0], 0.85, ry, 1.5, rs - 0.02, { fontSize: 9.5, bold: true, valign: 'middle' }); T(s, m.slice(1).join(' — '), 2.35, ry, tw - 1.65, rs - 0.02, { fontSize: 9.5, valign: 'middle', fit: 'shrink' }); }
+      else T(s, l, 0.85, ry, tw - 0.15, rs - 0.02, { fontSize: 9.5, valign: 'middle', fit: 'shrink' }); });
+    if (im.length) {
+      const ax = ms.length ? 6.1 : 0.7, aw = ms.length ? 3.25 : 8.6, ay = y + 0.4, ah = bh - 0.5;
+      const cols = im.length === 1 ? 1 : 2, rowsN = im.length <= 2 ? 1 : 2, g = 0.08;
+      const cw = (aw - g * (cols - 1)) / cols, chh = (ah - g * (rowsN - 1)) / rowsN;
+      im.forEach((u, i) => { const cx = ax + (i % cols) * (cw + g), cy = ay + Math.floor(i / cols) * (chh + g); box(s, cx, cy, cw, chh, 'FFFFFF', C.line, 0.04); addImg(s, u, cx + 0.04, cy + 0.04, cw - 0.08, chh - 0.08); });
+    }
+  }
   return s;
 }
 
@@ -1652,17 +1674,44 @@ function execHead(X) {
 }
 const execAuto = X => (X.auto || []).map(r => `<div class="exr"><b>${esc(r[0])}</b> ${esc(r[1])}</div>`).join('');
 function execBoxHtml(E, X, extra) {
+  memoOf(E);
   return `${extra || ''}<div class="exprev">
     <div data-exhead>${execHead(X)}</div>
-    <div class="grid2" style="margin-top:4px;gap:14px">
-      <div><b style="font-size:13px">확인할 점</b><div data-exauto>${execAuto(X)}</div>
-        <textarea class="exin" data-ex="risk" rows="3" placeholder="직접 쓰기 — 한 줄에 하나&#10;예) 납기 — 춘절 영향, 빠른 판매 위해 신속 진행 필요">${esc(E.risk)}</textarea></div>
-      <div><b style="font-size:13px">진행 일정</b>
-        <textarea class="exin" data-ex="next" rows="4" placeholder="${esc(X.next.join('\n'))}">${esc(E.next)}</textarea>
-        <p class="hint" style="margin:2px 0 0">한 줄에 하나 · 비우면 회색 글씨 내용이 들어갑니다</p></div>
-    </div></div>`;
+    <div style="margin-top:4px"><b style="font-size:13px">제안 사항</b>
+      <textarea class="exin" data-ex="memo" rows="4" placeholder="자유롭게 쓰세요 — 한 줄에 하나, 비우면 PPT에서 빠집니다&#10;예) 납기 — 춘절 영향, 빠른 판매 위해 신속 진행 필요&#10;예) 샘플 요청 → 품질 검토 → 판매 검토">${esc(E.memo)}</textarea>
+      <div class="eximgs" data-eximgs>${exImgsHtml(E)}</div></div></div>`;
 }
-function execRefresh(el, X) { const h = $('[data-exhead]', el), a = $('[data-exauto]', el); if (h) h.innerHTML = execHead(X); if (a) a.innerHTML = execAuto(X); }
+function exImgsHtml(E) {
+  const im = E.imgs || [];
+  return im.map((u, i) => `<div class="exim"><img src="${u}" alt=""><button class="x" data-eximgdel="${i}" title="사진 빼기">×</button></div>`).join('')
+    + (im.length < 4 ? `<div class="exim add" tabindex="0" data-eximgadd title="클릭해서 고르기 · 누른 뒤 Ctrl+V · 끌어다 놓기"><span>＋ 사진</span><small>클릭 · Ctrl+V<br>끌어다 놓기</small></div>` : '');
+}
+/* 제안 사항 사진: 세 탭 공통 (어느 탭 카드인지는 감싼 상자 id로 찾음) */
+const EX_SRC = { psExec: () => curPS(), subExec: () => curS(), propExec: () => P() };
+function exOwner(el) { const box = el && el.closest && el.closest('#psExec,#subExec,#propExec'); if (!box) return null; const o = EX_SRC[box.id](); if (!o) return null; o.exec = o.exec || newExec(); return { box, E: o.exec }; }
+async function exAddImgs(el, files) {
+  const w = exOwner(el); if (!w) return; const E = w.E; E.imgs = E.imgs || [];
+  const fs = [...files].filter(f => f && /^image\//.test(f.type)).slice(0, 4 - E.imgs.length);
+  if (!fs.length) { toast(E.imgs.length >= 4 ? '사진은 4장까지 넣을 수 있어요' : '그림 파일이 아닙니다'); return; }
+  for (const f of fs) E.imgs.push(await shrinkImage(f, 900));
+  save(); $('[data-eximgs]', w.box).innerHTML = exImgsHtml(E); toast(`사진 ${fs.length}장을 넣었습니다`);
+}
+document.addEventListener('click', e => {
+  const add = e.target.closest('[data-eximgadd]'); if (add && e.detail !== 0) { const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true; fi.onchange = () => exAddImgs(add, fi.files); fi.click(); return; }
+  const del = e.target.closest('[data-eximgdel]'); if (del) { const w = exOwner(del); if (!w) return; w.E.imgs.splice(+del.dataset.eximgdel, 1); save(); $('[data-eximgs]', w.box).innerHTML = exImgsHtml(w.E); }
+});
+document.addEventListener('paste', e => {
+  const a = document.activeElement; if (!a || !a.closest || !a.closest('.exprev')) return;
+  const files = [...((e.clipboardData || {}).items || [])].filter(i => i.kind === 'file' && /^image\//.test(i.type)).map(i => i.getAsFile());
+  if (!files.length) return;
+  const hasText = (e.clipboardData.getData('text/plain') || '').trim();
+  if (a.dataset.ex === 'memo' && hasText) return; // 글을 붙여 넣는 중이면 글로
+  e.preventDefault(); exAddImgs(a, files);
+});
+document.addEventListener('dragover', e => { const t = e.target.closest && e.target.closest('.exprev'); if (t) { e.preventDefault(); t.classList.add('over'); } });
+document.addEventListener('dragleave', e => { const t = e.target.closest && e.target.closest('.exprev'); if (t) t.classList.remove('over'); });
+document.addEventListener('drop', e => { const t = e.target.closest && e.target.closest('.exprev'); if (!t) return; e.preventDefault(); t.classList.remove('over'); exAddImgs(t, e.dataTransfer.files); });
+function execRefresh(el, X) { const h = $('[data-exhead]', el); if (h) h.innerHTML = execHead(X); }
 const execPreview = X => execHead(X); // (예전 이름 호환)
 
 /* =================== PPT 공통 =================== */
@@ -1728,7 +1777,7 @@ async function buildPropPpt() {
   const foot = `${ST().footerOrg} | ${p.title}`; const has = new Set(proposalSlides(p)); let pg = 1;
   const auto = autoSummary(p); const cm = costModel(p);
   cover(pres, { kicker: p.kicker, title: p.coverTitle || p.title, subtitle: p.subtitle, img: p.coverImg, footer: [p.from, p.date, p.baseDate ? '자료 기준일 ' + p.baseDate : ''].filter(Boolean).join('  |  ') });
-  execSlide(pres, ++pg, foot, propExec(p));
+  { const X = propExec(p); await preload(X.imgs); execSlide(pres, ++pg, foot, X); }
   // 요약
   { const s = base(pres, 'OVERVIEW', '제안 개요', ++pg, foot);
     const rows = [['왜 준비하나', p.summary.why], ['무엇을 파나', p.summary.what], ['얼마에 들어오나', p.summary.cost || auto.cost], ['얼마에 파나', p.summary.price || auto.price], ['추가 검토', p.summary.review]].filter(r => r[1]);
@@ -1883,7 +1932,7 @@ async function buildPricePpt() {
   const foot = `${st.footerOrg} | ${title}`;
   cover(pres, { kicker: 'PRICE REPORT', title: '최종 유통가 제안', subtitle: `${rows.length}개 품목 · 대리점가(제안 최저가) · 소비자가\n${st.fxMonth} 환율 USD ${num(st.fxUsd).toFixed(2)} · CNY ${num(st.fxCny).toFixed(2)}`, footer: `${st.footerOrg.split('→')[0].trim()}  |  ${today()}` });
   const hasImg = rows.some(r => r.img); if (hasImg) await preload(rows.map(r => r.img));
-  execSlide(pres, 2, foot, priceExec(ps));
+  { const X = priceExec(ps); await preload(X.imgs); execSlide(pres, 2, foot, X); }
   const hasDesc = false; // 제품 설명 칸은 없앰
   const per = hasImg ? 8 : hasDesc ? 10 : 13; const rh = hasImg ? 0.38 : hasDesc ? 0.34 : 0.27; let pg = 2;
   for (let i = 0; i < rows.length; i += per) {
@@ -1918,7 +1967,7 @@ async function buildSubPpt() {
   const appendix = [];
   for (const x of list) {
     const R = subCalc(x);
-    execSlide(pres, ++pg, foot, subExec(x, R));
+    { const X = subExec(x, R); await preload(X.imgs); execSlide(pres, ++pg, foot, X); }
     const prow = (p, r, i) => [String(i + 1), `${cut(p.oldName || '', 26)}${p.oldCode ? '\n' + cut(p.oldCode, 26) : ''}`, p.oldInto || '–', cut(`${p.oldSupplier || '–'} → ${p.newSupplier || '–'}`, 28), won(r.oldP), won(r.newP), won(r.save1), isFinite(r.qty) ? Math.round(r.qty).toLocaleString() : '–', won(r.mold), won(r.annual)]
       .map((v, k) => ({ text: v, options: { align: k >= 4 ? 'right' : k === 0 ? 'center' : 'left', bold: k === 5 || k === 9, color: k === 5 ? C.teal : k === 6 && !(r.save1 > 0) ? C.red : C.ink, fontSize: k === 1 || k === 3 ? 7.5 : 8 } }));
     const head = hdr(['#', '품목', '입고', '공급처 (기존 → 신규)', '기존 단가', '신규 단가', '개당 절감', '연 사용량', '금형비', '연간 절감'], 4);
