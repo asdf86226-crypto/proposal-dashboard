@@ -1684,7 +1684,7 @@ function execBoxHtml(E, X, extra) {
 function exImgsHtml(E) {
   const im = E.imgs || [];
   return im.map((u, i) => `<div class="exim"><img src="${u}" alt=""><button class="x" data-eximgdel="${i}" title="사진 빼기">×</button></div>`).join('')
-    + (im.length < 4 ? `<div class="exim add" tabindex="0" data-eximgadd title="클릭해서 고르기 · 누른 뒤 Ctrl+V · 끌어다 놓기"><span>＋ 사진</span><small>클릭 · Ctrl+V<br>끌어다 놓기</small></div>` : '');
+    + (im.length < 4 ? `<div class="exim add" tabindex="0" data-eximgadd title="누른 뒤 Ctrl+V · 끌어다 놓기 · 더블클릭하면 파일 고르기"><span>＋ 사진</span><small>누르고 Ctrl+V<br>더블클릭: 파일</small></div>` : '');
 }
 /* 제안 사항 사진: 세 탭 공통 (어느 탭 카드인지는 감싼 상자 id로 찾음) */
 const EX_SRC = { psExec: () => curPS(), subExec: () => curS(), propExec: () => P() };
@@ -1697,8 +1697,12 @@ async function exAddImgs(el, files) {
   save(); $('[data-eximgs]', w.box).innerHTML = exImgsHtml(E); toast(`사진 ${fs.length}장을 넣었습니다`);
 }
 document.addEventListener('click', e => {
-  const add = e.target.closest('[data-eximgadd]'); if (add && e.detail !== 0) { const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true; fi.onchange = () => exAddImgs(add, fi.files); fi.click(); return; }
+  const add = e.target.closest('[data-eximgadd]'); if (add) { add.focus(); return; } // 한 번 클릭은 선택만 (Ctrl+V 대기)
   const del = e.target.closest('[data-eximgdel]'); if (del) { const w = exOwner(del); if (!w) return; w.E.imgs.splice(+del.dataset.eximgdel, 1); save(); $('[data-eximgs]', w.box).innerHTML = exImgsHtml(w.E); }
+});
+document.addEventListener('dblclick', e => { // 더블클릭하면 파일 고르기
+  const add = e.target.closest && e.target.closest('[data-eximgadd]'); if (!add) return;
+  const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true; fi.onchange = () => exAddImgs(add, fi.files); fi.click();
 });
 document.addEventListener('paste', e => {
   const a = document.activeElement; if (!a || !a.closest || !a.closest('.exprev')) return;
