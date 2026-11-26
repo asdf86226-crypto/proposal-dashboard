@@ -1930,7 +1930,7 @@ async function buildPricePpt() {
   const title = ps.title && !/^(새 판매가 건|판매가 건 \d+)$/.test(ps.title) ? ps.title : auto;
   const pres = newPres(title); if (!pres) return null; const st = ST();
   const foot = `${st.footerOrg} | ${title}`;
-  cover(pres, { kicker: 'PRICE REPORT', title: '수전금구류 제안', subtitle: `${rows.length}개 품목 · 대리점가(제안 최저가) · 소비자가\n${st.fxMonth} 환율 USD ${num(st.fxUsd).toFixed(2)} · CNY ${num(st.fxCny).toFixed(2)}`, footer: `${st.footerOrg.split('→')[0].trim()}  |  ${today()}` });
+  cover(pres, { kicker: 'SALES PROPOSAL', title: '수전금구류 제안', subtitle: `${rows.length}개 품목 · 대리점가(제안 최저가) · 소비자가\n${st.fxMonth} 환율 USD ${num(st.fxUsd).toFixed(2)} · CNY ${num(st.fxCny).toFixed(2)}`, footer: `${st.footerOrg.split('→')[0].trim()}  |  ${today()}` });
   const hasImg = rows.some(r => r.img); if (hasImg) await preload(rows.map(r => r.img));
   { const X = priceExec(ps); await preload(X.imgs); execSlide(pres, 2, foot, X); }
   const hasDesc = false; // 제품 설명 칸은 없앰
