@@ -178,7 +178,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
   <nav id="nav">
     <button data-t="price" class="on">신규 런칭 제안</button>
     <button data-t="prop">신규 제안서</button>
-    <button data-t="sub" class="grp">부품 대체</button>
+    <button data-t="sub" class="grp">부품 대체 제안</button>
     <button data-t="data" class="grp">데이터 · 설정</button>
   </nav>
 </header>
@@ -1050,7 +1050,7 @@ function renderSub() {
   const f = (k, label, attrs = '', w = '') => `<div class="fld" ${w ? `style="${w}"` : ''}><label>${label}</label><input data-k="${k}" value="${esc(s[k] ?? '')}" ${attrs}></div>`;
   $('#subEdit').innerHTML = `
   <div class="card">
-    <div class="row" style="justify-content:space-between"><h2>부품 대체 검토</h2><span class="status" id="subData"></span></div>
+    <div class="row" style="justify-content:space-between"><h2>부품 대체 제안</h2><span class="status" id="subData"></span></div>
     <div class="row" style="margin-top:8px">${f('title', '검토 제목', '', 'flex:1;min-width:280px')}${f('other', '공통 투자 (샘플 · 인증 · 지그 등, 원)', 'type="number"', 'width:240px')}</div>
     <h3>대체 품목 <span class="pill g">${s.items.length}</span></h3>
     <p class="hint">품목코드를 넣으면 품명 · 입고 회사 · 공급처 · 현재 매입단가 · 판매단가 · 연간 사용량을 채웁니다. 금형비는 품목마다, 함께 드는 비용은 위 '공통 투자'에 넣으세요. 줄을 누르면 아래 '사용량 근거'가 그 품목으로 바뀝니다.</p>
