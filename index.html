@@ -176,7 +176,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
     <span class="meta" id="hdrMeta"></span>
   </div>
   <nav id="nav">
-    <button data-t="price" class="on">판매가 산출</button>
+    <button data-t="price" class="on">신규 런칭 제안</button>
     <button data-t="prop">신규 제안서</button>
     <button data-t="sub" class="grp">부품 대체</button>
     <button data-t="data" class="grp">데이터 · 설정</button>
@@ -203,7 +203,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <div style="flex:1;min-width:280px">
-        <h2>판매가 산출 — 대리점가 · 소비자가 제안</h2>
+        <h2>신규 런칭 제안 — 대리점가 · 소비자가</h2>
         <p class="hint" id="priceFlow"></p>
         <div class="fld" style="max-width:520px;margin-bottom:10px"><label>건 제목 (PPT 파일 이름 · 바닥글)</label><input id="psTitle"></div>
       </div>
@@ -1233,7 +1233,7 @@ $('#psToProp').onclick = () => {
   const p = emptyProposal(); const name = ps.title.replace(/\s*유통가.*$/, '').replace(/\s*\(예시\)/, '') || M.list[0].r.name;
   Object.assign(p, { title: `${name} 신규 제안`, coverTitle: `${name}\n신규 제안`, subtitle: `${M.models.length}개 모델${M.fins.length > 1 || M.fins[0] !== '기본' ? ' · ' + M.fins.join(' · ') : ''}\n입고가 · 판매가 검토`, date: `${new Date().getFullYear()}. ${new Date().getMonth() + 1}`, baseDate: today().replace(/-/g, '.'), coverImg: (ps.rows.find(r => r.img) || {}).img || '' });
   costFromPS(p, ps);
-  p.cost.title = '입고가 (판매가 산출 기준)'; p.pricing.title = '판매가 검토 : 대리점가 · 소비자가';
+  p.cost.title = '입고가 (런칭 제안 건 기준)'; p.pricing.title = '판매가 검토 : 대리점가 · 소비자가';
   p.summary.what = M.models.map(m => { const o = M.list.find(x => x.model === m && (x.r.desc || '').trim()) || M.list.find(x => x.model === m); return `${m}${o.r.name ? ' ' + o.r.name : ''}${(o.r.desc || '').trim() ? '(' + o.r.desc.split(/\n+/)[0].trim() + ')' : ''}`; }).join(' · ');
   M.models.slice(0, 3).forEach((m, i) => { const o = M.list.find(x => x.model === m && x.r.img) || M.list.find(x => x.model === m); const od = M.list.find(x => x.model === m && (x.r.desc || '').trim()) || o;
     Object.assign(p.lineup.models[i], { tag: (n => n > 1 ? `마감 ${n}종` : '')(M.fins.filter(f => M.list.some(x => x.model === m && x.fin === f)).length), code: m, name: (od.r.desc || '').trim() ? od.r.name + ' — ' + od.r.desc.split(/\n+/)[0].trim() : (o.r.name || ''), bullets: (od.r.desc || '').split(/\s*[·,\/\n]\s*/).map(x => x.trim()).filter(Boolean).join('\n'), img: o.r.img || '' }); });
@@ -2197,7 +2197,7 @@ $('#fxMonth').addEventListener('change', e => { const f = parseFx().find(x => x.
 $('#fxTable').addEventListener('change', e => { S.settings.fxTable = e.target.value; const fx = parseFx(); const last = fx[fx.length - 1]; if (last && S.settings.fxMonth !== '직접') { const f = fx.find(x => x.m === S.settings.fxMonth) || last; S.settings.fxMonth = f.m; S.settings.fxUsd = f.usd; S.settings.fxCny = f.cny; } save(); renderSettings(); renderHdr(); });
 async function rebuildD() { const raw = await KV.get('raw'); buildD(raw); renderDataStatus(); }
 function renderDataStatus() {
-  if (!D) { $('#dataStatus').innerHTML = '<span class="red">아직 연결된 MMS 파일이 없습니다.</span> 파일 없이도 판매가 산출 · 제안서는 쓸 수 있고, 부품 대체는 값을 직접 넣으면 됩니다.'; return; }
+  if (!D) { $('#dataStatus').innerHTML = '<span class="red">아직 연결된 MMS 파일이 없습니다.</span> 파일 없이도 신규 런칭 제안 · 제안서는 쓸 수 있고, 부품 대체는 값을 직접 넣으면 됩니다.'; return; }
   const m = D.meta; const n = Object.keys(D.items).length;
   $('#dataStatus').innerHTML = `품목 <b>${n.toLocaleString()}</b>개 ·
     구매현황 ${D.files.buy ? `<b>${esc(D.files.buy)}</b> (마지막 일자 ${m.buyAsOf})` : '<span class="red">없음</span>'} ·
