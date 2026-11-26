@@ -189,7 +189,7 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
 <section class="tab on" id="t-price">
  <div class="split">
   <div class="card">
-    <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>판매가 건</h2><button class="b" id="psNew">+ 새 건</button></div>
+    <div class="row" style="justify-content:space-between;margin-bottom:8px"><h2>신규 런칭 제안 건</h2><button class="b" id="psNew">+ 새 건</button></div>
     <div class="list" id="psList"></div>
     <div class="row" style="margin-top:12px;flex-direction:column;align-items:stretch">
       <button class="b p" id="pricePpt">PPT 만들기</button>
@@ -497,10 +497,10 @@ function sampleProposal() { return null; }
 let S = null;          // 사용자 입력 (자동 저장)
 let D = null;          // MMS 집계 데이터
 let curSub = null, curProp = null, ladderRow = null;
-function newPriceSet(title, rows) { return { id: uid(), title: title || '새 판매가 건', rows: rows || [blankPriceRow()] }; }
+function newPriceSet(title, rows) { return { id: uid(), title: title || '새 런칭 제안 건', rows: rows || [blankPriceRow()] }; }
 function blankPriceRow() { return { id: uid(), name: '', code: '', div: '수입', cur: 'USD', price: '', qty: '', sga: '', op: '', final: '', pick: true }; }
 function normPrice(st) { // 예전(표 하나) 자료를 건 목록으로 옮김
-  if (!st.priceSets) { st.priceSets = [newPriceSet(st.priceRows && st.priceRows.some(r => r.name === '스프레이건') ? '스프레이건 유통가 (예시)' : '판매가 건 1', st.priceRows && st.priceRows.length ? st.priceRows : undefined)]; delete st.priceRows; }
+  if (!st.priceSets) { st.priceSets = [newPriceSet(st.priceRows && st.priceRows.some(r => r.name === '스프레이건') ? '스프레이건 유통가 (예시)' : '런칭 제안 건 1', st.priceRows && st.priceRows.length ? st.priceRows : undefined)]; delete st.priceRows; }
   if (!st.priceSets.length) st.priceSets.push(newPriceSet());
   if (!st.priceSets.some(x => x.id === st.curPS)) st.curPS = st.priceSets[0].id;
   return st;
@@ -509,7 +509,7 @@ const curPS = () => S.priceSets.find(x => x.id === S.curPS);
 const PR = () => curPS().rows;
 function freshState() {
   if (PUBLIC_BUILD) { const p = emptyProposal(); p.date = `${new Date().getFullYear()}. ${new Date().getMonth() + 1}`; const s = newSub();
-    return normPrice({ v: 1, settings: defaultSettings(), priceSets: [newPriceSet('판매가 건 1')], subs: [s], props: [p], curSub: s.id, curProp: p.id }); }
+    return normPrice({ v: 1, settings: defaultSettings(), priceSets: [newPriceSet('런칭 제안 건 1')], subs: [s], props: [p], curSub: s.id, curProp: p.id }); }
   const p = sampleProposal(); const s = sampleSub(); return normPrice({ v: 1, settings: defaultSettings(), priceSets: [newPriceSet('스프레이건 유통가 (예시)', samplePriceRows())], subs: [s], props: [p], curSub: s.id, curProp: p.id }); }
 let saveT = null;
 function save() { clearTimeout(saveT); saveT = setTimeout(flushSave, 400); }
@@ -1931,7 +1931,7 @@ async function buildPricePpt() {
   const rows = PR().filter(r => r.pick && isFinite(priceRowCalc(r).final));
   if (!rows.length) { toast('보고 칸에 체크된 품목이 없습니다'); return null; }
   const ps = curPS(); const nm = (rows[0].name || rows[0].code || '').trim(); const auto = !nm ? `${ps.title || '판매가'} 유통가 제안` : rows.length === 1 ? `${nm} 유통가 제안` : `${nm} 외 ${rows.length - 1}건 유통가 제안`;
-  const title = ps.title && !/^(새 판매가 건|판매가 건 \d+)$/.test(ps.title) ? ps.title : auto;
+  const title = ps.title && !/^(새 판매가 건|새 런칭 제안 건|판매가 건 \d+|런칭 제안 건 \d+)$/.test(ps.title) ? ps.title : auto;
   const pres = newPres(title); if (!pres) return null; const st = ST();
   const foot = `${st.footerOrg} | ${title}`;
   cover(pres, { kicker: 'SALES PROPOSAL', title: '수전금구류 제안', subtitle: `${rows.length}개 품목 · 대리점가(제안 최저가) · 소비자가\n${st.fxMonth} 환율 USD ${num(st.fxUsd).toFixed(2)} · CNY ${num(st.fxCny).toFixed(2)}`, footer: `${st.footerOrg.split('→')[0].trim()}  |  ${today()}` });
