@@ -148,6 +148,13 @@ dialog .ft{padding:12px 18px;display:flex;gap:8px;justify-content:flex-end;borde
 .exim.add{flex-direction:column;gap:2px;padding:6px;border:1px dashed var(--edge);background:var(--panel);color:var(--ink-soft);font-size:12.5px;text-align:center;line-height:1.3;cursor:pointer}
 .exim.add small{font-size:10.5px;color:var(--muted)}
 .exim.add:focus{outline:2px solid var(--teal);outline-offset:-2px}
+.notebox{display:flex;flex-direction:column;gap:4px;border-radius:8px;padding:2px}
+.notebox.over{outline:2px dashed var(--teal);outline-offset:2px}
+details.more{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+details.more>summary{cursor:pointer;font-size:12.5px;color:var(--ink-soft);font-weight:600;list-style:none}
+details.more>summary::before{content:"▸ ";color:var(--teal)}
+details.more[open]>summary::before{content:"▾ "}
+.morein{margin-top:8px}
 .exprev.over{outline:2px dashed var(--teal);outline-offset:2px}
 .ladder{display:flex;gap:6px;flex-wrap:wrap}
 .ladder div{border:1px solid var(--line);border-radius:6px;padding:6px 10px;text-align:center;min-width:92px;background:var(--panel)}
@@ -385,11 +392,11 @@ pre{background:var(--chip);border-radius:6px;padding:10px;font-size:11.5px;overf
   <div class="hd">✦ AI 초안 — Claude에게 문구 받기</div>
   <div class="bd">
     <ol class="steps" style="margin:0">
-      <li>제품 특징 · 배경을 메모로 몇 줄 적습니다. (예: "현행 TF-AC7401 버튼 고착 불량 개선 목적, 세라믹 카트리지 3만회, 자석 거치")</li>
-      <li><b>요청문 복사</b>를 누르고 <a href="https://claude.ai/new" target="_blank" rel="noopener">claude.ai</a> 새 대화에 붙여 넣습니다.</li>
-      <li>Claude 답을 <b>전부</b> 복사해 아래 칸에 붙여 넣고 <b>넣기</b>를 누릅니다.</li>
+      <li>각 목차의 <b>메모 · 사진</b>을 먼저 채웁니다 (요청문에 목차별 메모가 들어갑니다). 더 전할 말이 있으면 아래 칸에 적으세요.</li>
+      <li><b>요청문 복사</b>를 누르고 Claude(이 작업 대화 또는 <a href="https://claude.ai/new" target="_blank" rel="noopener">claude.ai</a> 새 대화)에 붙여 넣습니다.</li>
+      <li>Claude 답(JSON)을 <b>전부</b> 복사해 아래 칸에 붙여 넣고 <b>넣기</b>를 누르면 세부 칸 · 사진 자리가 채워집니다.</li>
     </ol>
-    <div class="fld"><label>제품 특징 · 배경 메모</label><textarea id="aiMemo" style="min-height:70px" placeholder="견적 업체, 현행 제품 문제점, 핵심 기능, 타깃 고객, 원하는 판매가 등"></textarea></div>
+    <div class="fld"><label>더 전할 말 (선택)</label><textarea id="aiMemo" style="min-height:56px" placeholder="예) 영업팀이 바로 쓸 수 있게 영업 포인트를 쉽게, 가격은 보수적으로"></textarea></div>
     <div class="row"><button class="b p" id="aiCopy">요청문 복사</button><span class="hint" style="margin:0">입고가 · 마진 같은 사내 원가 정보가 요청문에 들어갑니다. 회사 정책을 확인하고 쓰세요.</span></div>
     <div id="aiPromptBox" hidden><textarea id="aiPromptText" readonly style="min-height:90px;font-size:11.5px;font-family:ui-monospace,Consolas,monospace"></textarea></div>
     <div class="fld"><label>Claude 답 붙여넣기</label><textarea id="aiAnswer" style="min-height:110px;font-size:12px;font-family:ui-monospace,Consolas,monospace" placeholder='{ "subtitle": "...", "summary": { ... } ... }'></textarea></div>
@@ -1307,59 +1314,101 @@ function autoFillProp(p) {
 
 /* ---------- AI 초안 (Claude, 복사 → 붙여넣기) ---------- */
 function aiPrompt(p) {
-  const F = propFacts(p); const s = autoSummary(p);
+  const F = propFacts(p); const s = autoSummary(p); const n = p.notes || {}; const ni = p.nimgs || {};
+  const LBL = { cover: '1. 표지', summary: '2. 제안 개요', bg: '3. 추진 배경', market: '4. 경쟁사 판매가', comps: '5. 경쟁사 사진', lineup: '6. 제안 라인업', sets: '7. 세트 구성', cost: '8. 입고가', pricing: '9. 판매가 검토', plan: '10. 판매 계획', points: '11. 영업 포인트', review: '12. 추가 검토 사항' };
+  const memo = {}; Object.keys(LBL).forEach(k => { const t = (n[k] || '').trim(), c = (ni[k] || []).length; if (t || c) memo[LBL[k]] = (t || '') + (c ? `\n(사진 ${c}장 — PPT에 순서대로 들어감)` : ''); });
+  const hasCost = F.cm.models.some(m => F.cm.fins.some(f => F.cm.sets.some(st => isFinite(F.cm.v(m, f, st)))));
   const data = {
-    제안서: p.title, 현행제품: p.bg.curCode || null,
-    현행제품_실적: F.cur ? { 품명: F.cur.name, 최근12개월판매: F.us ? Math.round(F.us.own12) : null, 최근판매단가: F.cur.lastSell ? Math.round(F.cur.lastSell.price) : null } : null,
-    라인업: p.lineup.models.filter(m => m.code).map(m => ({ 코드: m.code, 설명: m.name, 특징: lines(m.bullets) })),
-    세트구성: p.sets.options.filter(o => o.tag || o.name).map(o => ({ 세트: o.tag, 구성: o.name, 설명: o.desc })),
-    입고가_원: Object.fromEntries(F.cm.models.map(m => [m, Object.fromEntries(F.cm.fins.map(f => [f, Object.fromEntries(F.cm.sets.map(st => [st, Math.round(F.cm.v(m, f, st)) || null]))]))])),
-    판매가: { 기준: `${F.bm} ${F.f0} ${F.set0}`, 대리점가: F.dealer || null, 소비자가: F.consumer || null, 영업이익률: ST().op + '%', 현행가: p.pricing.compare },
-    요약_숫자: { 얼마에_들어오나: s.cost, 얼마에_파나: s.price },
-    경쟁사: F.comps.map(c => ({ 제품: c.name, 판매가: c.price, 구분: GROUPS[c.g].label })),
-    담당자_메모: p.aiMemo || ''
+    제안서_이름: p.title,
+    목차별_메모: memo,
+    담당자_추가_메모: p.aiMemo || '',
+    이미_있는_입고가_원: hasCost ? Object.fromEntries(F.cm.models.map(m => [m, Object.fromEntries(F.cm.fins.map(f => [f, Object.fromEntries(F.cm.sets.map(st => [st, Math.round(F.cm.v(m, f, st)) || null]))]))])) : null,
+    판매가: hasCost ? { 기준: `${F.bm} ${F.f0} ${F.set0}`, 대리점가: F.dealer || null, 소비자가: F.consumer || null, 영업이익률: ST().op + '%', 소비자가_계산: '대리점가 × ' + ST().consumerMult } : '입고가가 정해지면 자동 계산',
+    현행제품_실적: F.cur ? { 코드: p.bg.curCode, 품명: F.cur.name, 최근12개월판매: F.us ? Math.round(F.us.own12) : null, 최근판매단가: F.cur.lastSell ? Math.round(F.cur.lastSell.price) : null } : null,
+    환율: { USD: num(ST().fxUsd), CNY: num(ST().fxCny), 수입_부대비용: ST().costImport + '%' }
   };
-  return `당신은 수도꼭지 제조사 태성정밀(브랜드: 폰타나 수전)의 상품기획 담당자입니다. 개발기획팀이 영업팀에 보내는 "신규 제품 제안서" PPT의 문구를 써 주세요.
+  return `당신은 수도꼭지 제조사 태성정밀(브랜드: 폰타나 수전)의 상품기획 담당자입니다.
+아래 "목차별 메모"를 바탕으로, 영업팀에 보내는 "신규 제품 제안서" PPT의 각 칸을 채워 주세요.
 
 [쓰는 방식]
 - 한국어, PPT에 들어갈 짧은 문장. 한 칸에 1~2줄, 명사형 또는 "~함/~음"으로 끝냄.
-- 숫자(가격 · 마진 · 수량)는 아래 자료에 있는 것만 쓰고, 없는 숫자는 만들지 마세요.
-- 특징 · 영업 포인트는 라인업 특징과 담당자 메모를 바탕으로, 고객(대리점 · 소비자)에게 말하듯 구체적으로.
-- 자료가 없어 쓸 수 없는 칸은 빈 문자열("")로 두세요.
+- 숫자(가격 · 수량 · 견적)는 메모와 자료에 있는 것만 쓰고, 없는 숫자는 만들지 마세요.
+- 메모에 없어 쓸 수 없는 칸은 빈 문자열("") · 빈 배열([]) · null 로 두세요.
+- 경쟁사 사진(competitors)과 라인업(lineup)은 메모에 적힌 순서(= 사진 순서) 그대로 쓰세요.
+- 입고가(cost)는 메모에 견적이 있고 "이미_있는_입고가_원"이 null일 때만 채우세요.
 
 [자료]
 ${JSON.stringify(data, null, 1)}
 
 [답 형식] 아래 JSON 하나만 답하세요. 설명이나 코드 블록 표시는 붙이지 마세요.
 {
- "subtitle": "표지 부제 2줄 (\\n으로 줄바꿈)",
+ "title": "제안서 이름 (파일 이름 · 바닥글)",
+ "cover": {"title": "표지 제목 (\\n으로 2줄)", "subtitle": "표지 부제 (\\n으로 2줄)"},
  "summary": {"why": "왜 준비하나", "what": "무엇을 파나", "review": "추가 검토 한 줄"},
- "background": {"next": [{"t": "방향 제목(짧게)", "d": "설명"}, {"t": "", "d": ""}, {"t": "", "d": ""}]},
- "market": {"title": "경쟁사 판매가 장 제목 (결론 한 줄)", "notes": [{"t": "포지션", "d": ""}, {"t": "직접 경쟁", "d": ""}, {"t": "", "d": ""}]},
- "lineup": [{"code": "라인업 코드 그대로", "name": "한 줄 설명", "bullets": ["특징1", "특징2", "특징3"]}],
- "pricing_points": ["판매가 검토 포인트 2~3개"],
+ "background": {"current_code": "현행 제품 코드", "rows": [{"t": "구성", "d": ""}, {"t": "런칭", "d": ""}, {"t": "판매가", "d": ""}, {"t": "방향", "d": ""}], "next": [{"t": "방향 제목", "d": "설명"}, {"t": "", "d": ""}, {"t": "", "d": ""}]},
+ "market": {"title": "경쟁사 판매가 장 제목 (결론 한 줄)", "items": [{"name": "제품명", "price": 0, "group": "대중|디자인|직접|자사"}], "notes": [{"t": "포지션", "d": ""}, {"t": "직접 경쟁", "d": ""}, {"t": "", "d": ""}], "source": "출처 · 조회일"},
+ "competitors": [{"brand": "", "name": "", "price": 0, "desc": "특징 한 줄", "shop": "판매처", "direct": false}],
+ "lineup": [{"tag": "짧은 구분 (예: 1기능 · 버튼)", "code": "모델 코드", "name": "한 줄 설명", "bullets": ["특징1", "특징2", "특징3"]}],
+ "sets": {"title": "세트 구성 장 제목", "parts": [{"name": "구성품", "desc": ""}], "options": [{"tag": "세트 A", "badge": "기본 · 주력", "name": "구성", "desc": "설명"}]},
+ "cost": null,
+ "pricing": {"compare": {"마감 이름": 0}, "points": ["판매가 검토 포인트 2~3개"]},
+ "plan": {"mall_qty": null, "agent_qty": null, "moq": null, "lead": "", "cert": "", "warranty": ""},
  "selling_points": [{"t": "영업 포인트 제목", "d": "고객에게 하는 설명"}],
- "review": {"left": ["공급사 · 제품 확인 항목"], "right": ["판매 조건 검토 항목"]}
+ "review": {"left": ["공급사 · 제품 확인 항목"], "right": ["판매 조건 검토 항목"]},
+ "proposal_memo": ["제안 요약 장의 '제안 사항' 2~4줄"]
 }
-영업 포인트(selling_points)는 6개를 써 주세요.`;
+- cost를 채울 때 형식: {"mode": "USD|CNY|KRW", "models": ["모델"], "finishes": ["마감"], "sets": ["세트"], "prices": {"모델|마감|세트": 단가}}
+- plan의 수량은 연간 개수입니다 (월 수량이면 ×12).
+- 영업 포인트(selling_points)는 6개를 써 주세요.`;
 }
 function applyAi(p, txt) {
   const m = String(txt).match(/\{[\s\S]*\}/); if (!m) throw new Error('답에서 JSON을 찾지 못했습니다');
   const j = JSON.parse(m[0]);
   p._undo = JSON.stringify(p);
-  const S2 = (v) => typeof v === 'string' ? v.trim() : '';
+  const S2 = v => typeof v === 'string' ? v.trim() : (typeof v === 'number' && isFinite(v) ? String(v) : '');
+  const arr = v => Array.isArray(v) ? v : [];
+  const lns = v => arr(v).map(S2).filter(Boolean).join('\n');
+  if (S2(j.title)) p.title = S2(j.title);
+  if (j.cover) { if (S2(j.cover.title)) p.coverTitle = S2(j.cover.title); if (S2(j.cover.subtitle)) p.subtitle = S2(j.cover.subtitle); }
   if (S2(j.subtitle)) p.subtitle = S2(j.subtitle);
   if (j.summary) ['why', 'what', 'review'].forEach(k => { if (S2(j.summary[k])) p.summary[k] = S2(j.summary[k]); });
-  if (j.background && Array.isArray(j.background.next)) j.background.next.slice(0, 3).forEach((x, i) => { if (x && (S2(x.t) || S2(x.d))) p.bg.next[i] = { t: S2(x.t), d: S2(x.d) }; });
-  if (j.market) { if (S2(j.market.title)) p.market.title = S2(j.market.title); (j.market.notes || []).slice(0, 3).forEach((x, i) => { if (x && (S2(x.t) || S2(x.d))) p.market.notes[i] = { t: S2(x.t), d: S2(x.d) }; }); }
-  (j.lineup || []).forEach(x => { const mm = p.lineup.models.find(mo => mo.code && x && mo.code === x.code); if (!mm) return; if (S2(x.name)) mm.name = S2(x.name); if (Array.isArray(x.bullets) && x.bullets.length) mm.bullets = x.bullets.map(S2).filter(Boolean).join('\n'); });
-  if (Array.isArray(j.pricing_points) && j.pricing_points.length) p.pricing.points = j.pricing_points.map(S2).filter(Boolean).join('\n');
-  if (Array.isArray(j.selling_points) && j.selling_points.length) j.selling_points.slice(0, 6).forEach((x, i) => { p.points.items[i] = { t: S2(x && x.t), d: S2(x && x.d) }; });
-  if (j.review) { if (Array.isArray(j.review.left) && j.review.left.length) p.review.left = j.review.left.map(S2).filter(Boolean).join('\n'); if (Array.isArray(j.review.right) && j.review.right.length) p.review.right = j.review.right.map(S2).filter(Boolean).join('\n'); }
+  if (j.background) {
+    if (S2(j.background.current_code)) p.bg.curCode = S2(j.background.current_code);
+    const rows = arr(j.background.rows).filter(x => x && S2(x.d)); if (rows.length) p.bg.rows = rows.map(x => `${S2(x.t)} | ${S2(x.d)}`).join('\n');
+    arr(j.background.next).slice(0, 3).forEach((x, i) => { if (x && (S2(x.t) || S2(x.d))) p.bg.next[i] = { t: S2(x.t), d: S2(x.d) }; });
+  }
+  if (j.market) {
+    if (S2(j.market.title)) p.market.title = S2(j.market.title);
+    const its = arr(j.market.items).filter(x => x && S2(x.name) && isFinite(num(x.price))); if (its.length) p.market.items = its.map(x => `${S2(x.name)} | ${num(x.price)} | ${S2(x.group) || '대중'}`).join('\n');
+    arr(j.market.notes).slice(0, 3).forEach((x, i) => { if (x && (S2(x.t) || S2(x.d))) p.market.notes[i] = { t: S2(x.t), d: S2(x.d) }; });
+    if (S2(j.market.source)) p.market.source = S2(j.market.source);
+  }
+  arr(j.competitors).slice(0, 9).forEach((x, i) => { if (!x) return; while (p.comps.items.length <= i) p.comps.items.push({ brand: '', name: '', price: '', shop: '', desc: '', img: '', hot: false });
+    const c = p.comps.items[i]; Object.assign(c, { brand: S2(x.brand) || c.brand, name: S2(x.name) || c.name, price: isFinite(num(x.price)) && num(x.price) > 0 ? num(x.price) : c.price, desc: S2(x.desc) || c.desc, shop: S2(x.shop) || c.shop, hot: !!x.direct }); });
+  arr(j.lineup).slice(0, 3).forEach((x, i) => { if (!x) return; const mm = p.lineup.models.find(mo => mo.code && mo.code === S2(x.code)) || p.lineup.models[i];
+    if (S2(x.code)) mm.code = S2(x.code); if (S2(x.tag)) mm.tag = S2(x.tag); if (S2(x.name)) mm.name = S2(x.name); if (arr(x.bullets).length) mm.bullets = lns(x.bullets); });
+  if (j.sets) { if (S2(j.sets.title)) p.sets.title = S2(j.sets.title);
+    arr(j.sets.parts).slice(0, 4).forEach((x, i) => { if (x && S2(x.name)) Object.assign(p.sets.parts[i], { name: S2(x.name), desc: S2(x.desc) }); });
+    arr(j.sets.options).slice(0, 3).forEach((x, i) => { if (x && (S2(x.tag) || S2(x.name))) Object.assign(p.sets.options[i], { tag: S2(x.tag), badge: S2(x.badge), name: S2(x.name), desc: S2(x.desc) }); }); }
+  const costEmpty = !Object.values(p.cost.m || {}).some(v => isFinite(num(v)));
+  if (j.cost && j.cost.prices && costEmpty) { const c = j.cost;
+    if (['USD', 'CNY', 'KRW'].includes(c.mode)) p.cost.mode = c.mode;
+    if (arr(c.models).length) p.cost.models = arr(c.models).map(S2).join(', '); if (arr(c.finishes).length) p.cost.finishes = arr(c.finishes).map(S2).join(', '); if (arr(c.sets).length) p.cost.setNames = arr(c.sets).map(S2).join(', ');
+    Object.entries(c.prices).forEach(([k, v]) => { if (isFinite(num(v))) p.cost.m[k] = num(v); }); }
+  if (j.pricing) { if (j.pricing.compare && typeof j.pricing.compare === 'object') Object.entries(j.pricing.compare).forEach(([f, v]) => { if (isFinite(num(v)) && num(v) > 0) p.pricing.compare[f] = num(v); });
+    if (arr(j.pricing.points).length) p.pricing.points = lns(j.pricing.points); }
+  if (arr(j.pricing_points).length) p.pricing.points = lns(j.pricing_points);
+  if (j.plan) { p.plan = p.plan || newPlan(); p.exec = p.exec || newExec();
+    if (isFinite(num(j.plan.mall_qty))) p.plan.mall.qty = num(j.plan.mall_qty); if (isFinite(num(j.plan.agent_qty))) p.plan.agent.qty = num(j.plan.agent_qty);
+    if (isFinite(num(j.plan.moq))) p.exec.moq = num(j.plan.moq); ['lead', 'cert', 'warranty'].forEach(k => { if (S2(j.plan[k])) p.plan[k] = S2(j.plan[k]); }); }
+  if (arr(j.selling_points).length) arr(j.selling_points).slice(0, 6).forEach((x, i) => { p.points.items[i] = { t: S2(x && x.t), d: S2(x && x.d) }; });
+  if (j.review) { if (arr(j.review.left).length) p.review.left = lns(j.review.left); if (arr(j.review.right).length) p.review.right = lns(j.review.right); }
+  if (arr(j.proposal_memo).length) { p.exec = p.exec || newExec(); p.exec.memo = lns(j.proposal_memo); }
+  noteImgsTo(p);
 }
 $('#propEdit').addEventListener('click', async e => {
   const p = P(); if (!p) return;
-  if (e.target.id === 'propAuto') { const n = autoFillProp(p); save(); renderPropKeep(); toast(n ? `빈 칸 ${n}곳을 채웠습니다. 내용을 확인하고 고쳐 주세요` : '채울 수 있는 빈 칸이 없습니다', 4000); }
+  if (e.target.id === 'propAuto') { noteImgsTo(p); const n = autoFillProp(p); save(); renderPropKeep(); toast(n ? `빈 칸 ${n}곳을 채웠습니다. 내용을 확인하고 고쳐 주세요` : '채울 수 있는 빈 칸이 없습니다', 4000); }
   if (e.target.id === 'propAi') { $('#aiMemo').value = p.aiMemo || ''; $('#aiAnswer').value = ''; $('#aiPromptBox').hidden = true; $('#aiUndo').hidden = !p._undo; $('#dlgAI').showModal(); }
 });
 $('#aiMemo').addEventListener('input', e => { const p = P(); if (p) { p.aiMemo = e.target.value; save(); } });
@@ -1375,6 +1424,63 @@ $('#aiApply').onclick = () => {
 $('#aiUndo').onclick = () => { const p = P(); if (!p || !p._undo) return; const o = JSON.parse(p._undo); Object.assign(p, o); delete p._undo; save(); $('#dlgAI').close(); renderPropKeep(); toast('AI 초안 넣기 전으로 되돌렸습니다'); };
 $('#aiClose').onclick = () => $('#dlgAI').close();
 
+/* =================== 신규 제안서(상세): 목차별 메모 · 사진 → AI 초안 → 자동 채우기 ===================
+ * 목차를 열면 메모(자유롭게) · 사진만 보이고, 세부 칸은 접어 둔다.
+ * ✦ AI 초안: 목차별 메모 + 숫자로 요청문 → Claude 답(JSON) 붙여넣기 → 세부 칸 · 사진 자리 채움. */
+const NOTE_SECS = {
+  cover: { ph: '제품 · 브랜드 이름, 표지에 쓸 말\n예) 폰타나 스탠수전 신규 라인업, 원홀 세면 · 욕조샤워 2종', img: 1, imgHint: '표지 오른쪽 제품 사진' },
+  summary: { ph: '왜 준비하나, 무엇을 파나 — 한두 줄씩\n예) 기존 니켈수전 단종 대체, 스탠 바디로 녹 · 변색 문제 해결' },
+  bg: { ph: '현행 제품(코드) · 문제점, 왜 지금 준비하는지\n예) 현행 TF-L4710 — 도금 박리 클레임 연 30건, 런칭 2023년' },
+  market: { ph: '경쟁 제품 · 판매가 · 판매처 — 쇼핑몰 화면 글을 그대로 붙여 넣어도 됩니다\n예) 대림바스 DL-S4193 21,900원 (유바스)' },
+  comps: { ph: '사진 순서대로 브랜드 · 제품 · 가격 · 판매처\n예) 1. 라우체 SP01N 니켈 29,000원 예스365몰', img: 9, imgHint: '경쟁 제품 사진 (순서대로)' },
+  lineup: { ph: '모델 코드 · 이름 · 특징 (사진은 모델 순서대로)\n예) ST01 원홀 세면 — STS304, 무광 니켈, 세라믹 카트리지', img: 3, imgHint: '모델 사진 (순서대로, 최대 3)' },
+  sets: { ph: '구성품과 세트 종류\n예) 수전 + 배수구 + 호스 / 세트 A 기본, 세트 B 팝업 포함', img: 7, imgHint: '구성품 사진 → 세트 사진 순서' },
+  cost: { ph: '견적 내용 — 런칭 제안 건에서 가져왔다면 비워도 됩니다\n예) ST01 니켈 $18.5 FOB, MOQ 300' },
+  pricing: { ph: '현행가 · 목표 온라인가, 가격 전략\n예) 경쟁 대비 2~3천원 높게, 온라인 49,000원 목표' },
+  plan: { ph: '예상 판매 수량(자사몰 · 대리점), 리드타임 · 인증 · 보증\n예) 자사몰 월 50개, 대리점 월 150개, 발주 후 45일, KC 진행 중' },
+  points: { ph: '고객에게 강조할 점\n예) 녹 안 생김, 무광 니켈 지문 안 남음, 설치 호환' },
+  review: { ph: '더 확인할 것, 판매 조건\n예) 샘플 내구 테스트, 대리점 단가 협의' }
+};
+const openMore = new Set();
+function noteBox(p, id) {
+  const cfg = NOTE_SECS[id]; p.notes = p.notes || {}; p.nimgs = p.nimgs || {};
+  const im = p.nimgs[id] || [];
+  const strip = cfg.img ? `<div class="eximgs">${im.map((u, i) => `<div class="exim"><img src="${u}" alt=""><button class="x" data-nimgdel="${id}|${i}" title="사진 빼기">×</button></div>`).join('')}${im.length < cfg.img ? `<div class="exim add" tabindex="0" data-nimgadd="${id}" title="누른 뒤 Ctrl+V · 끌어다 놓기 · 더블클릭하면 파일 고르기"><span>＋ 사진</span><small>누르고 Ctrl+V<br>더블클릭: 파일</small></div>` : ''}</div><p class="hint" style="margin:4px 0 0">${cfg.imgHint} · 최대 ${cfg.img}장</p>` : '';
+  return `<div class="notebox" data-notesec="${id}"><label class="mut" style="font-size:12px;font-weight:600">메모 — 자유롭게 쓰세요 (AI 초안의 재료)</label>
+    <textarea class="exin" data-note="${id}" rows="3" placeholder="${esc(cfg.ph)}">${esc(p.notes[id] || '')}</textarea>${strip}</div>`;
+}
+function noteImgsTo(p) { // 목차 사진 → PPT 사진 자리
+  const n = p.nimgs || {};
+  if ((n.cover || [])[0]) p.coverImg = n.cover[0];
+  (n.lineup || []).slice(0, 3).forEach((u, i) => { p.lineup.models[i].img = u; });
+  (n.sets || []).forEach((u, i) => { if (i < 4) p.sets.parts[i].img = u; else if (i < 7) p.sets.options[i - 4].img = u; });
+  (n.comps || []).forEach((u, i) => { while (p.comps.items.length <= i) p.comps.items.push({ brand: '', name: '', price: '', shop: '', desc: '', img: '', hot: false }); p.comps.items[i].img = u; });
+}
+async function noteAddImgs(el, files) {
+  const box = el.closest('[data-notesec]'); if (!box) return; const id = box.dataset.notesec; const p = P(); const cap = NOTE_SECS[id].img || 0;
+  p.nimgs = p.nimgs || {}; const arr = p.nimgs[id] = p.nimgs[id] || [];
+  const fs = [...files].filter(f => f && /^image\//.test(f.type)).slice(0, cap - arr.length);
+  if (!fs.length) { toast(arr.length >= cap ? `이 목차는 사진을 ${cap}장까지 넣을 수 있어요` : '그림 파일이 아닙니다'); return; }
+  for (const f of fs) arr.push(await shrinkImage(f, 900));
+  noteImgsTo(p); save(); renderPropKeep(); toast(`사진 ${fs.length}장을 넣었습니다`);
+}
+document.addEventListener('click', e => {
+  const add = e.target.closest && e.target.closest('[data-nimgadd]'); if (add) { add.focus(); return; }
+  const del = e.target.closest && e.target.closest('[data-nimgdel]'); if (del) { const [id, i] = del.dataset.nimgdel.split('|'); const p = P(); p.nimgs[id].splice(+i, 1); save(); renderPropKeep(); }
+});
+document.addEventListener('dblclick', e => { const add = e.target.closest && e.target.closest('[data-nimgadd]'); if (!add) return; const fi = document.createElement('input'); fi.type = 'file'; fi.accept = 'image/*'; fi.multiple = true; fi.onchange = () => noteAddImgs(add, fi.files); fi.click(); });
+document.addEventListener('paste', e => {
+  const a = document.activeElement; const box = a && a.closest && a.closest('[data-notesec]'); if (!box || !NOTE_SECS[box.dataset.notesec].img) return;
+  const files = [...((e.clipboardData || {}).items || [])].filter(i => i.kind === 'file' && /^image\//.test(i.type)).map(i => i.getAsFile()); if (!files.length) return;
+  if (a.dataset.note && (e.clipboardData.getData('text/plain') || '').trim()) return;
+  e.preventDefault(); noteAddImgs(a, files);
+});
+document.addEventListener('dragover', e => { const t = e.target.closest && e.target.closest('[data-notesec]'); if (t && NOTE_SECS[t.dataset.notesec].img) { e.preventDefault(); t.classList.add('over'); } });
+document.addEventListener('dragleave', e => { const t = e.target.closest && e.target.closest('[data-notesec]'); if (t) t.classList.remove('over'); });
+document.addEventListener('drop', e => { const t = e.target.closest && e.target.closest('[data-notesec]'); if (!t || !NOTE_SECS[t.dataset.notesec].img) return; e.preventDefault(); t.classList.remove('over'); noteAddImgs(t, e.dataTransfer.files); });
+$('#propEdit').addEventListener('input', e => { const id = e.target.dataset.note; if (!id) return; const p = P(); p.notes = p.notes || {}; p.notes[id] = e.target.value; save(); });
+$('#propEdit').addEventListener('toggle', e => { const d = e.target.closest && e.target.closest('details[data-more]'); if (d && d === e.target) d.open ? openMore.add(d.dataset.more) : openMore.delete(d.dataset.more); }, true);
+
 $('#propDup').onclick = () => { const p = P(); if (!p) return; const c = JSON.parse(JSON.stringify(p)); c.id = uid(); c.title += ' (복사본)'; S.props.push(c); S.curProp = c.id; save(); renderProp(); };
 
 /* 입력 필드 헬퍼: data-p="경로" 로 상태와 연결 */
@@ -1384,7 +1490,11 @@ const inp = (path, label, attrs = '', style = '') => `<div class="fld" style="${
 const ta = (path, label, ph = '', h = 64) => `<div class="fld"><label>${label}</label><textarea data-p="${path}" placeholder="${esc(ph)}" style="min-height:${h}px">${esc(getPath(P(), path))}</textarea></div>`;
 const img = (path, label) => { const v = getPath(P(), path); return `<div class="imgbox">${v ? `<img src="${v}" alt="">` : '<div class="ph">사진</div>'}<div class="fld"><label>${label}</label><div class="row" style="gap:4px"><button class="b" data-img="${path}">사진 넣기</button>${v ? `<button class="b" data-imgdel="${path}">지우기</button>` : ''}</div></div></div>`; };
 const onoff = (path) => `<label class="pill ${getPath(P(), path) ? '' : 'g'}" style="cursor:pointer" onclick="event.stopPropagation()"><input type="checkbox" data-p="${path}" ${getPath(P(), path) ? 'checked' : ''} style="vertical-align:-2px"> PPT에 넣기</label>`;
-function sec(id, title, body, onPath) { const open = (openSecs.has(id)) ? 'open' : ''; return `<details class="sec" data-sec="${id}" ${open}><summary>${title}${onPath ? onoff(onPath) : ''}</summary><div class="in">${body}</div></details>`; }
+function sec(id, title, body, onPath) {
+  const open = (openSecs.has(id)) ? 'open' : '';
+  const inner = NOTE_SECS[id] ? `${noteBox(P(), id)}<details class="more" data-more="${id}" ${openMore.has(id) ? 'open' : ''}><summary>세부 칸 — AI 초안 · 자동 채우기 결과 확인 · 수정</summary><div class="morein">${body}</div></details>` : body;
+  return `<details class="sec" data-sec="${id}" ${open}><summary>${title}${onPath ? onoff(onPath) : ''}</summary><div class="in">${inner}</div></details>`;
+}
 const openSecs = new Set(['cover']);
 function renderProp() {
   renderPropList();
@@ -1407,7 +1517,7 @@ function renderProp() {
   $('#propEdit').innerHTML = `
   <div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(p.title || '제목 없음')}</h2>
     <div class="row"><button class="b p" id="propAuto" title="비어 있는 칸만, 입고가 · 판매가 · 경쟁사 가격 · MMS 실적으로 채웁니다">⚡ 자동 채우기</button><button class="b d" id="propAi" title="Claude에게 문구 초안을 받아 채웁니다">✦ AI 초안 (Claude)</button></div></div>
-    <p class="hint" style="margin:6px 0 0">⚡ 자동 채우기는 <b>비어 있는 칸만</b> 숫자로 쓸 수 있는 문장으로 채웁니다. 영업 포인트 · 배경 같은 설명 문구는 ✦ AI 초안을 쓰세요. 칸을 비워 두면 그 장은 PPT에서 빠집니다.</p></div>
+    <p class="hint" style="margin:6px 0 0"><b>① 목차를 열어 메모 · 사진만 넣으세요</b> → <b>② ✦ AI 초안</b>으로 요청문을 복사해 Claude에 물어보고 답을 붙여 넣으면 세부 칸이 채워집니다 → <b>③ ⚡ 자동 채우기</b>로 남은 빈 칸(숫자 문장)까지 채우고 PPT 만들기. 세부 칸은 각 목차의 '세부 칸'을 열어 확인 · 수정합니다.</p></div>
   ${sec('exec', '0. 제안 요약 (PPT 2쪽)', `<p class="hint">PPT 2쪽 모양 그대로입니다 — 숫자는 자동으로 계산되고, 제안 사항만 카드 안에 쓰면 됩니다.</p><div id="propExec"></div>`)}
   ${sec('cover', '1. 표지', `<div class="row">${inp('title', '제안서 이름 (파일 이름 · 바닥글)', '', 'flex:1;min-width:260px')}${inp('kicker', '상단 작은 글씨', '', 'width:160px')}</div>
      <div class="grid2" style="margin-top:8px">${ta('coverTitle', '표지 제목 (줄바꿈 가능)', '', 56)}${ta('subtitle', '부제 (줄바꿈 가능)', '', 56)}</div>
