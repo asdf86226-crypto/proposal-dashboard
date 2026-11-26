@@ -606,8 +606,8 @@ $('#psList').addEventListener('click', e => {
   if (e.target.matches('[data-del]')) { ask(`'${p.title}' 건을 지울까요?`, '지우기').then(ok => { if (!ok) return; S.priceSets = S.priceSets.filter(x => x !== p); normPrice(S); ladderRow = null; save(); renderPrice(); }); return; }
   S.curPS = p.id; ladderRow = null; save(); renderPrice();
 });
-$('#psNew').onclick = () => { const p = newPriceSet(); S.priceSets.unshift(p); S.curPS = p.id; ladderRow = null; save(); renderPrice(); $('#psTitle').focus(); $('#psTitle').select(); };
-$('#psDup').onclick = () => { const c = JSON.parse(JSON.stringify(curPS())); c.id = uid(); c.title += ' (복사본)'; c.rows.forEach(r => r.id = uid()); S.priceSets.unshift(c); S.curPS = c.id; ladderRow = null; save(); renderPrice(); };
+$('#psNew').onclick = () => { const p = newPriceSet(); S.priceSets.push(p); S.curPS = p.id; ladderRow = null; save(); renderPrice(); $('#psTitle').focus(); $('#psTitle').select(); };
+$('#psDup').onclick = () => { const c = JSON.parse(JSON.stringify(curPS())); c.id = uid(); c.title += ' (복사본)'; c.rows.forEach(r => r.id = uid()); S.priceSets.push(c); S.curPS = c.id; ladderRow = null; save(); renderPrice(); };
 $('#psTitle').addEventListener('input', e => { curPS().title = e.target.value; save(); const li = $(`#psList .li[data-id="${S.curPS}"] .t`); if (li) li.textContent = e.target.value || '제목 없음'; });
 function renderLadder() {
   setTimeout(renderPsExec, 0);
@@ -1003,8 +1003,8 @@ $('#subList').addEventListener('click', e => {
   if (e.target.matches('[data-del]')) { ask(`'${s.title}' 검토를 지울까요?`, '지우기').then(ok => { if (!ok) return; S.subs = S.subs.filter(x => x !== s); if (S.curSub === s.id) S.curSub = (S.subs[0] || {}).id; save(); renderSub(); }); return; }
   S.curSub = s.id; save(); renderSub();
 });
-$('#subDup').onclick = () => { const s0 = curS(); if (!s0) return; const c = JSON.parse(JSON.stringify(s0)); c.id = uid(); c.title += ' (복사본)'; c.pick = false; c.items.forEach(p => p.id = uid()); c.curPart = c.items[0].id; S.subs.unshift(c); S.curSub = c.id; save(); renderSub(); };
-$('#subNew').onclick = () => { const s = newSub(); S.subs.unshift(s); S.curSub = s.id; save(); renderSub(); };
+$('#subDup').onclick = () => { const s0 = curS(); if (!s0) return; const c = JSON.parse(JSON.stringify(s0)); c.id = uid(); c.title += ' (복사본)'; c.pick = false; c.items.forEach(p => p.id = uid()); c.curPart = c.items[0].id; S.subs.push(c); S.curSub = c.id; save(); renderSub(); };
+$('#subNew').onclick = () => { const s = newSub(); S.subs.push(s); S.curSub = s.id; save(); renderSub(); };
 
 function partRow(p, i, sel) {
   const r = partCalc(p);
@@ -1201,7 +1201,7 @@ $('#propList').addEventListener('click', e => {
   if (e.target.matches('[data-del]')) { ask(`'${p.title}' 제안서를 지울까요?`, '지우기').then(ok => { if (!ok) return; S.props = S.props.filter(x => x !== p); if (S.curProp === p.id) S.curProp = (S.props[0] || {}).id; save(); renderProp(); }); return; }
   S.curProp = p.id; save(); renderProp();
 });
-$('#propNew').onclick = () => { const p = emptyProposal(); p.date = `${new Date().getFullYear()}. ${new Date().getMonth() + 1}`; S.props.unshift(p); S.curProp = p.id; save(); renderProp(); };
+$('#propNew').onclick = () => { const p = emptyProposal(); p.date = `${new Date().getFullYear()}. ${new Date().getMonth() + 1}`; S.props.push(p); S.curProp = p.id; save(); renderProp(); };
 /* 판매가 건 → 신규 제안서: 견적을 받아 판매가를 뽑은 건을 그대로 제안서로 */
 const FIN_NAMES = { CR: '크롬', BN: '브러시드 니켈', GR: '건그레이', NI: '니켈', BK: '블랙', WH: '화이트', GD: '골드', MB: '매트블랙', SS: '스테인리스' };
 function psModels(ps) { // 품목코드 'SS80050M/CR' → 모델 SS80050M · 마감 크롬. '/'가 없으면 마감 '기본'
@@ -1229,7 +1229,7 @@ $('#psToProp').onclick = () => {
   M.models.slice(0, 3).forEach((m, i) => { const o = M.list.find(x => x.model === m && x.r.img) || M.list.find(x => x.model === m); const od = M.list.find(x => x.model === m && (x.r.desc || '').trim()) || o;
     Object.assign(p.lineup.models[i], { tag: (n => n > 1 ? `마감 ${n}종` : '')(M.fins.filter(f => M.list.some(x => x.model === m && x.fin === f)).length), code: m, name: (od.r.desc || '').trim() ? od.r.name + ' — ' + od.r.desc.split(/\n+/)[0].trim() : (o.r.name || ''), bullets: (od.r.desc || '').split(/\s*[·,\/\n]\s*/).map(x => x.trim()).filter(Boolean).join('\n'), img: o.r.img || '' }); });
   p.lineup.title = `제안 라인업 : ${M.models.length}개 모델`;
-  S.props.unshift(p); S.curProp = p.id; save();
+  S.props.push(p); S.curProp = p.id; save();
   openSecs.add('cost'); openSecs.add('pricing');
   $$('#nav button').forEach(x => x.classList.toggle('on', x.dataset.t === 'prop')); $$('.tab').forEach(t => t.classList.toggle('on', t.id === 't-prop')); renderProp(); scrollTo(0, 0);
   toast(`'${ps.title}'로 제안서를 만들었습니다. 배경 · 경쟁사 · 영업 포인트를 채우세요`, 4500);
@@ -1366,7 +1366,7 @@ $('#aiApply').onclick = () => {
 $('#aiUndo').onclick = () => { const p = P(); if (!p || !p._undo) return; const o = JSON.parse(p._undo); Object.assign(p, o); delete p._undo; save(); $('#dlgAI').close(); renderPropKeep(); toast('AI 초안 넣기 전으로 되돌렸습니다'); };
 $('#aiClose').onclick = () => $('#dlgAI').close();
 
-$('#propDup').onclick = () => { const p = P(); if (!p) return; const c = JSON.parse(JSON.stringify(p)); c.id = uid(); c.title += ' (복사본)'; S.props.unshift(c); S.curProp = c.id; save(); renderProp(); };
+$('#propDup').onclick = () => { const p = P(); if (!p) return; const c = JSON.parse(JSON.stringify(p)); c.id = uid(); c.title += ' (복사본)'; S.props.push(c); S.curProp = c.id; save(); renderProp(); };
 
 /* 입력 필드 헬퍼: data-p="경로" 로 상태와 연결 */
 function getPath(o, path) { return path.split('.').reduce((a, k) => a == null ? a : a[k], o); }
