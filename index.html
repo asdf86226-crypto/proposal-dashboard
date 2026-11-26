@@ -1901,7 +1901,7 @@ async function buildPropPpt() {
 function ladderSlides(pres, pg, foot, items) {
   const st = ST(); const per = 3;
   for (let i = 0; i < items.length; i += per) {
-    const s = base(pres, 'GUIDE', `영업이익률별 대리점가${items.length > per ? ` (${i + 1}~${Math.min(items.length, i + per)} / ${items.length})` : ''}`, ++pg, foot);
+    const s = base(pres, 'GUIDE', `영업이익률별 대리점가${items.length > per ? ` (${Math.floor(i / per) + 1}/${Math.ceil(items.length / per)}장)` : ''}`, ++pg, foot);
     items.slice(i, i + per).forEach((it, j) => {
       const y = 1.15 + j * 1.25;
       const target = isFinite(num(it.op)) ? num(it.op) : num(st.op);
@@ -1936,7 +1936,7 @@ async function buildPricePpt() {
   const hasDesc = false; // 제품 설명 칸은 없앰
   const per = hasImg ? 8 : hasDesc ? 10 : 13; const rh = hasImg ? 0.38 : hasDesc ? 0.34 : 0.27; let pg = 2;
   for (let i = 0; i < rows.length; i += per) {
-    const s = base(pres, 'PRICE', `대리점가 · 소비자가 제안 (${i + 1}~${Math.min(rows.length, i + per)} / ${rows.length})`, ++pg, foot);
+    const s = base(pres, 'PRICE', `대리점가 · 소비자가 제안${rows.length > per ? ` (${Math.floor(i / per) + 1}/${Math.ceil(rows.length / per)}장)` : ''}`, ++pg, foot);
     const hd = [...(hasImg ? ['사진'] : []), '품목', '품목코드', '수량', '매입원가', 'BEP', '대리점가', '소비자가', '영업이익/개', '영업이익률'].map((t, k) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: C.ink }, align: k < (hasImg ? 3 : 2) ? (hasImg && k === 0 ? 'center' : 'left') : 'right' } }));
     const body = rows.slice(i, i + per).map(r => { const c = priceRowCalc(r); return [(r.desc || '').trim() ? { text: [{ text: cut(r.name, 30), options: { breakLine: true } }, { text: r.desc.split(/\n+/).map(x => x.trim()).filter(Boolean).join(' · ').slice(0, 70), options: { fontSize: 6.5, color: C.soft } }], options: { align: 'left' } } : cut(r.name, 24), cut(r.code, 22), (num(r.qty) || 0).toLocaleString(), won(c.cost), won(c.bep), { text: won(c.final), options: { bold: true, color: C.teal, align: 'right' } }, { text: won(c.consumer), options: { bold: true, align: 'right' } }, won(c.opAmt), { text: pct(c.opRate), options: { align: 'right', color: c.opRate < 0 ? C.red : C.ink } }].map((v, k) => typeof v === 'object' ? v : { text: v, options: { align: k < 2 ? 'left' : 'right' } }); });
     if (hasImg) body.forEach(b => b.unshift({ text: '' }));
