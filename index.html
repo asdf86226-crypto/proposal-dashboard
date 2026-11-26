@@ -1223,7 +1223,7 @@ function costFromPS(p, ps) {
   const M = psModels(ps); const set = (p.cost.setNames.split(',')[0] || '').trim() || '단품';
   p.cost.mode = 'KRW'; p.cost.models = M.models.join(', '); p.cost.finishes = M.fins.join(', '); p.cost.setNames = set; p.cost.m = {};
   M.list.forEach(o => { p.cost.m[`${o.model}|${o.fin}|${set}`] = Math.round(o.cost); });
-  p.cost.note = `판매가 산출 '${ps.title}' 기준 입고가 (${ST().fxMonth} 환율 USD ${num(ST().fxUsd).toFixed(2)} · CNY ${num(ST().fxCny).toFixed(2)}, 부대비용 수입 ${ST().costImport}% · 에이전트 ${ST().costAgent}% · 국내 ${ST().costDomestic}%) · ${today()} 가져옴`;
+  p.cost.note = `런칭 제안 건 '${ps.title}' 기준 입고가 (${ST().fxMonth} 환율 USD ${num(ST().fxUsd).toFixed(2)} · CNY ${num(ST().fxCny).toFixed(2)}, 부대비용 수입 ${ST().costImport}% · 에이전트 ${ST().costAgent}% · 국내 ${ST().costDomestic}%) · ${today()} 가져옴`;
   if (!M.models.includes(p.pricing.baseModel)) p.pricing.baseModel = M.models[0] || '';
   p.fromPS = ps.id; return M;
 }
@@ -1431,7 +1431,7 @@ function renderProp() {
   ${sec('lineup', '6. 제안 라인업', `${inp('lineup.title', '장 제목')}<div class="grid3" style="margin-top:8px">${[0, 1, 2].map(i => `<div class="slot">${img(`lineup.models.${i}.img`, '모델 사진')}${inp(`lineup.models.${i}.tag`, '태그')}${inp(`lineup.models.${i}.code`, '모델 코드')}${inp(`lineup.models.${i}.name`, '한 줄 설명')}${ta(`lineup.models.${i}.bullets`, '특징 (한 줄에 하나)', '', 80)}</div>`).join('')}</div>${inp('lineup.note', '하단 공통 메모', '', 'margin-top:8px')}`, 'lineup.on')}
   ${sec('sets', '7. 세트 구성', `${inp('sets.title', '장 제목')}<h3>구성품 (+ 로 연결)</h3><div class="grid3" style="grid-template-columns:repeat(4,1fr)">${[0, 1, 2, 3].map(i => `<div class="slot">${img(`sets.parts.${i}.img`, '사진')}${inp(`sets.parts.${i}.name`, '이름')}${inp(`sets.parts.${i}.desc`, '설명')}</div>`).join('')}</div>
      <h3>세트 선택지</h3><div class="grid3">${[0, 1, 2].map(i => `<div class="slot">${img(`sets.options.${i}.img`, '사진')}<div class="row">${inp(`sets.options.${i}.tag`, '세트명', '', 'width:90px')}${inp(`sets.options.${i}.badge`, '구분', '', 'flex:1')}</div>${inp(`sets.options.${i}.name`, '밸브 · 구성')}${ta(`sets.options.${i}.desc`, '설명', '', 48)}</div>`).join('')}</div>`, 'sets.on')}
-  ${sec('cost', '8. 세트별 입고가', `${(() => { const ps = p.fromPS && S.priceSets.find(x => x.id === p.fromPS); return ps ? `<div class="row" style="margin-bottom:8px"><span class="pill">판매가 건 '${esc(ps.title)}'에서 가져옴</span><button class="b" id="propRefreshPS">판매가 건에서 다시 가져오기</button></div>` : (p.fromPS ? '<p class="hint red">가져온 판매가 건이 지워졌습니다.</p>' : ''); })()}${inp('cost.title', '장 제목')}
+  ${sec('cost', '8. 세트별 입고가', `${(() => { const ps = p.fromPS && S.priceSets.find(x => x.id === p.fromPS); return ps ? `<div class="row" style="margin-bottom:8px"><span class="pill">런칭 제안 건 '${esc(ps.title)}'에서 가져옴</span><button class="b" id="propRefreshPS">런칭 제안 건에서 다시 가져오기</button></div>` : (p.fromPS ? '<p class="hint red">가져온 런칭 제안 건이 지워졌습니다.</p>' : ''); })()}${inp('cost.title', '장 제목')}
      <div class="row" style="margin-top:8px">${inp('cost.models', '모델 (쉼표)', '', 'flex:1')}${inp('cost.finishes', '마감 (쉼표)', '', 'flex:1')}${inp('cost.setNames', '세트 (쉼표)', '', 'flex:1.4')}
      <div class="fld"><label>단가 입력 방식</label><select data-p="cost.mode"><option value="USD" ${p.cost.mode === 'USD' ? 'selected' : ''}>FOB USD</option><option value="CNY" ${p.cost.mode === 'CNY' ? 'selected' : ''}>FOB CNY</option><option value="KRW" ${p.cost.mode === 'KRW' ? 'selected' : ''}>원화 입고가</option></select></div></div>
      <p class="hint" style="margin-top:6px">${p.cost.mode === 'KRW' ? '입고가(원)를 그대로 넣습니다.' : `외화 단가를 넣으면 ${p.cost.mode} × ${fxOf(p.cost.mode).toFixed(2)}원 × (1 + 수입 부대비용 ${ST().costImport}%)로 입고가를 계산합니다.`} 첫 번째 세트가 주력으로 강조됩니다.</p>
@@ -1510,7 +1510,7 @@ $('#propEdit').addEventListener('click', e => {
   const t = e.target; const p = P();
   if (t.dataset.img) { imgPath = t.dataset.img; $('#imgIn').value = ''; $('#imgIn').click(); }
   if (t.dataset.imgdel) { setPath(p, t.dataset.imgdel, ''); save(); renderPropKeep(); }
-  if (t.id === 'propRefreshPS') { const ps = S.priceSets.find(x => x.id === p.fromPS); if (ps) { costFromPS(p, ps); save(); renderPropKeep(); toast('입고가를 판매가 건의 최신 값으로 바꿨습니다'); } }
+  if (t.id === 'propRefreshPS') { const ps = S.priceSets.find(x => x.id === p.fromPS); if (ps) { costFromPS(p, ps); save(); renderPropKeep(); toast('입고가를 런칭 제안 건의 최신 값으로 바꿨습니다'); } }
   if (t.id === 'compAdd') { p.comps.items.push({ brand: '', name: '', price: '', shop: '', desc: '', img: '', hot: false }); save(); renderPropKeep(); }
   if (t.dataset.compdel) { p.comps.items.splice(+t.dataset.compdel, 1); save(); renderPropKeep(); }
 });
